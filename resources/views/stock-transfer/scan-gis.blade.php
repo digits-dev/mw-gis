@@ -42,6 +42,35 @@ input[type=number]::-webkit-outer-spin-button {
   margin: 0; 
 }
 
+/* loading spinner */
+.loading {
+    z-index: 20;
+    position: absolute;
+    top: 0;
+    bottom:0;
+    left:0;
+    width: 100%;
+    height: 1500px;
+    background-color: rgba(0,0,0,0.4);
+}
+.loading-content {
+    position: absolute;
+    border: 16px solid #f3f3f3; /* Light grey */
+    border-top: 16px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    top: 20%;
+    left:50%;
+    bottom:0;
+    animation: spin 2s linear infinite;
+}
+    
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 </style>
 @endpush
 
@@ -62,12 +91,15 @@ input[type=number]::-webkit-outer-spin-button {
         </div>
 
         <div class='panel-body'>
-            
+            <section id="loading">
+                <div id="loading-content"></div>
+                <span>Please wait...</span>
+            </section>
             <div class="col-md-12">
                 <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE DIGITS CODE**</b></p>
             </div>
 
-            <form action="{{ route('saveCreateST') }}" method="POST" id="st_create" autocomplete="off" role="form" enctype="multipart/form-data">
+            <form action="{{ route('saveCreateGisST') }}" method="POST" id="st_create" autocomplete="off" role="form" enctype="multipart/form-data">
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
             <input type="hidden" name="transfer_transit" id="transfer_transit" value="" >
             <input type="hidden" name="transfer_rma" id="transfer_rma" value="" >
@@ -166,7 +198,7 @@ input[type=number]::-webkit-outer-spin-button {
                                     <th width="15%" class="text-center">{{ trans('message.table.item_description') }}</th>
                                     <th width="15%" class="text-center">Location</th>
                                     <th width="5%" class="text-center">{{ trans('message.table.st_quantity') }}</th>
-                                    <th width="10%" class="text-center">{{ trans('message.table.action') }}</th>
+                                    <th width="5%" class="text-center">{{ trans('message.table.action') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -248,7 +280,7 @@ input[type=number]::-webkit-outer-spin-button {
                 </div>
                 
                 <div class="modal-body">
-                    <p>Item not found! Please try again.</p>
+                    <h4 class="text-center">Item not found! Please try again.</h4>
                 </div>
 
                 <div class="modal-footer">
@@ -270,7 +302,7 @@ input[type=number]::-webkit-outer-spin-button {
                 </div>
                 
                 <div class="modal-body">
-                    <p>Limit of 100 skus/serials reach!</p>
+                    <h4 class="text-center">Limit of 100 skus/serials reach!</h4>
                 </div>
 
                 <div class="modal-footer">
@@ -281,7 +313,7 @@ input[type=number]::-webkit-outer-spin-button {
     	</div>
     </div>
 
-    <div class="modal fade" data-backdrop="static" data-keyboard="false" id="serial_scan_error" role="dialog">
+    <div class="modal fade" data-backdrop="static" data-keyboard="false" id="exist_scan_error" role="dialog">
     	<div class="modal-dialog">
     
     		<!-- Modal content-->
@@ -293,7 +325,7 @@ input[type=number]::-webkit-outer-spin-button {
                 </div>
                 
                 <div class="modal-body">
-                    <p>Serial not found! Please try again.</p>
+                    <h4 class="text-center">Item already added.</h4>
                 </div>
 
                 <div class="modal-footer">
@@ -335,7 +367,7 @@ $(document).ready(function() {
     $('#reason').select2();
     $('#transport_type').select2();
     $('#transfer_from').trigger('change');
-
+    $('#btnSubmit').attr('disabled', true);
     $('#st_form').on('copy',function(e) {
         e.preventDefault();
         return false;
@@ -368,7 +400,7 @@ $(document).ready(function() {
     $('#item_search').keypress(function(event){
         if (event.which == '13') {
             event.preventDefault();
-            $('#item_search').prop("disabled", true);
+            // $('#item_search').prop("disabled", true);
             $('.scan').css('background-color','white');
             var current_qty = $('#qty_'+$(this).val()).val();
             
@@ -383,7 +415,7 @@ $(document).ready(function() {
             else{
                 current_qty++;
             }
-
+            showLoading();
             $.ajax({
                 url: "{{ route('scanItemSearchGis') }}",
                 cache: true,
@@ -396,86 +428,77 @@ $(document).ready(function() {
                     "quantity": current_qty,
                 },
                 success: function (data) {
-                    
                     if (data.status_no == 1) {
-
+                        hideLoading();
                         digits_code = data.items.digits_code;   
                         has_serial = data.items.has_serial;
-                        $.playSound(ASSET_URL+'sounds/success.ogg');
                         if (!in_array(data.items.digits_code, stack)) {
+                            $.playSound(ASSET_URL+'sounds/success.ogg');
                             stack.push(data.items.digits_code);
+                            $('#item_search').val('');
                             var new_row = '<tr class="nr" id="rowid' + data.items.digits_code + '">' +
                                 '<td><input class="form-control text-center" type="text" name="digits_code[]" readonly value="' + data.items.digits_code + '"></td>' +
-                                '<td><input class="form-control" type="text" name="item_description[]" readonly value="' + data.items.item_description + '"><input type="hidden" name="price[]" value="' + data.items.price + '"></td>' +
-                                '<td><input class="form-control" type="text" name="location[]" readonly value="' + data.items.location + '"><input type="hidden" name="location[]" value="' + data.items.location_name + '"></td>' +
-                                '<td class="scan scanqty' + data.items.digits_code + '" bgcolor="yellow"><input class="form-control text-center scan_qty" type="number" min="0" max="9999" oninput="validity.valid||(value=0);" id="qty_' + data.items.digits_code + '" name="st_quantity[]" readonly value="1">' + 
+                                '<td><input class="form-control" type="text" name="item_description[]" readonly value="' + data.items.item_description + '"></td>' +
+                                '<td><input class="form-control" type="text" name="location" readonly value="' + data.items.location + '"><input type="hidden" name="location_id_from" value="' + data.items.location_id_from + '"><input type="hidden" name="sub_location_id_from" value="' + data.items.sub_location_id_from + '"></td>' +
+                                '<td class="scan scanqty' + data.items.digits_code + '"><input class="form-control text-center scan_qty" type="number" min="0" max="9999" id="st_qty" value="0" name="st_quantity[]" item-qty="'+data.items.orig_qty+'">' + 
                                 '<td class="text-center"><button id="' + data.items.digits_code + '" class="btn btn-xs btn-danger delete_item"><i class="glyphicon glyphicon-trash"></i></button></td>' +
                                 '</tr>';
                                 
                             sku_count++;
                             $("#sku_count").text(sku_count);
-                            
                             $(new_row).insertAfter($('table tr.dynamicRows:last'));
-
+                            $("#totalQuantity").val(calculateTotalQty());
+                            validateInput();
+                          
+                        }else{
+                            $("#exist_scan_error").modal();
+                            $.playSound(ASSET_URL+'sounds/error.ogg');
+                            hideLoading();
                         }
-                        else{
-                            
-                            //insert new serial
-                            if(has_serial == 1){
-                                var current_sn = parseInt($('#qty_' + digits_code).val());
-                                current_sn++;
-                                var new_serial = '<input class="form-control serial serial_' + data.items.digits_code + '" type="text" name="' + data.items.digits_code + '_serial_number[]" id="serial_number_' + data.items.digits_code + current_sn +'">';
-                                $(new_serial).insertAfter($('.serial_'+digits_code+':last'));
-                            }
-                            $('#qty_' + digits_code).val(function (i, oldval) {
-                                return ++oldval;
-                            });
-                            $('.scanqty' + digits_code).css('background-color', 'yellow');
-                        }
-                        
                         $("#totalQuantity").val(calculateTotalQty());
                         $('.tableInfo').show();
-
-                        if(has_serial == 1){
-                            var sn = (($('#qty_'+digits_code).val() == '') ? 0 : $('#qty_'+digits_code).val());
-                            sn_field = sn;
-                            $('#scanned_item_code').text(digits_code);
-                            $('#serial_field').val('serial_number_'+digits_code+sn);
-                            setTimeout(function(){ 
-                                $('#item_search').prop("disabled", true);
-                            },0);
-                            $("#scan_serial").modal();
-                            $('#scan_serial').on('shown.bs.modal', function () {
-                                $('#scanned_serial').focus();
-                            });
-                            
-                            sku_count++;
-                            $("#sku_count").text(sku_count);
-                        }
-                    }
-                    else {
+                        $('#st_qty').on('input', function(e) {
+                            $("#totalQuantity").val(calculateTotalQty());
+                            validateInput();
+                        });
+                    }else {
+                        hideLoading();
                         $('#item_search').val('');
                         $("#item_scan_error").modal();
                         setTimeout(function(){ 
                             $('#item_search').prop("disabled", true);
                         },0);
                         $.playSound(ASSET_URL+'sounds/error.ogg');
-                    }
-                    if(has_serial != 1){
-                        $('#item_search').removeAttr("disabled");
-                        $('#item_search').val('');
-                        $('#item_search').focus();
-                    }
-                    
+                    }               
                 }
             });
 
-            checkSerial(); 
-        }
-        else{
+        }else{
             onlyNumber(event);
         }
     });
+
+    function validateInput() {
+        const qtyInput = $('.scan_qty').get();
+        let isValid = true;
+
+        qtyInput.forEach(input => {
+            const currentVal = $(input).val(); 
+            const value = Number(currentVal.replace(/\D/g, ''));
+            const maxValue = Number($(input).attr('item-qty'));
+            if (value > maxValue) {
+                $(input).css('border', '2px solid red');
+                isValid = false;
+            } else if (currentVal <= 0) {
+                isValid = false;
+                $(input).css('border', '');
+            } else {
+                $(input).css('border', '');
+            }
+        });
+    
+        $('#btnSubmit').attr('disabled', !isValid);
+    }
 
     $('#scanned_serial').keypress(function(event){
         if (event.which == '13' && $(this).val().length > 1) {
@@ -679,8 +702,19 @@ $(document).ready(function() {
             trans_reason > 0 && 
             trans_type.length > 0 
             && trans_type == 1){
-
-            $("#st_create").submit();
+                swal({
+                    title: "Are you sure?",
+                    type: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#337ab7",
+                    cancelButtonColor: "#F9354C",
+                    confirmButtonText: "Yes, create it!",
+                    width: 450,
+                    height: 200
+                    }, function () {
+                        $("#st_create").submit();                                             
+                });
+           
         }
         else if(calculateTotalQty() > 0 && trans_to > 0 && 
             trans_reason > 0 && 
@@ -688,7 +722,18 @@ $(document).ready(function() {
             trans_type == 2 && 
             trans_handcarry > 0){
 
-            $("#st_create").submit();
+                swal({
+                    title: "Are you sure?",
+                    type: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#337ab7",
+                    cancelButtonColor: "#F9354C",
+                    confirmButtonText: "Yes, create it!",
+                    width: 450,
+                    height: 200
+                    }, function () {
+                        $("#st_create").submit();                                             
+                });
         }
         else{
             $('#btnSubmit').removeAttr("disabled");
@@ -696,87 +741,58 @@ $(document).ready(function() {
     });
 });
 
-function checkSerial() {
-    if(checkNoSerial() == 0 && sku_count <= 100) {
-        $('#btnSubmit').removeAttr("disabled");
-        event.preventDefault();
-    }
-    else{
-        $('#btnSubmit').prop("disabled", true);
-        event.preventDefault();
-    }
-}
 
-function calculateTotalQty() {
-  var totalQty = 0;
-  $('.scan_qty').each(function () {
-    totalQty += parseInt($(this).val());
-  });
-  return totalQty;
-}
-
-function checkNoSerial() {
-    var noSerial = 0;
-  $('.serial').each(function () {
-    if($(this).val() == "") noSerial++;
-  });
-  return noSerial;
-}
-
-function in_array(search, array) {
-  for (i = 0; i < array.length; i++) {
-    if (array[i] == search) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function changeFocus(){
-    $('#item_search').removeAttr("disabled");
-    $('#item_search').val('');
-    
-    setTimeout(function(){ 
-        $('#item_search').focus();
-    },0);
-}
-
-function cancelSerial(){
-    var v = $("#serial_field").val().substr(14,8);
-    var rfield = $("#serial_field").val();
-    var vqty = $("#qty_"+v).val();
-
-    if(vqty == 1){
-        stack = jQuery.grep(stack, function (value) {
-            return value != v;
+    function calculateTotalQty() {
+        var totalQty = 0;
+        $('.scan_qty').each(function () {
+            totalQty += parseInt($(this).val());
         });
-        $("#rowid"+v).remove();
+        return totalQty;
     }
-    else{
-        $('#qty_' + v).val(function (i, oldval) {
-            return --oldval;
-        });
+
+
+    function in_array(search, array) {
+        for (i = 0; i < array.length; i++) {
+            if (array[i] == search) {
+            return true;
+            }
+        }
+        return false;
+    }
+
+    function changeFocus(){
+        $('#item_search').removeAttr("disabled");
+        $('#item_search').val('');
         
-        $('#'+rfield).remove();
+        setTimeout(function(){ 
+            $('#item_search').focus();
+        },0);
     }
 
-    $("#totalQuantity").val(calculateTotalQty());
-    changeFocus();
-}
 
-function onlyNumber(evt) {
+    function onlyNumber(evt) {
+        
+        var charCode = (evt.which) ? evt.which : event.keyCode
+        if ( event.keyCode == 8 ) {
+        // let it happen, don't do anything
+        }
+        else {
+            // Ensure that it is a number and stop the keypress
+            if (event.keyCode < 48 || event.keyCode > 57 ) {
+                event.preventDefault(); 
+            }   
+        }
+    }
+
+    function showLoading() {
+        document.querySelector('#loading').classList.add('loading');
+        document.querySelector('#loading-content').classList.add('loading-content');
+    }
     
-    var charCode = (evt.which) ? evt.which : event.keyCode
-    if ( event.keyCode == 8 ) {
-    // let it happen, don't do anything
+    function hideLoading() {
+        document.querySelector('#loading').classList.remove('loading');
+        document.querySelector('#loading-content').classList.remove('loading-content');
     }
-    else {
-        // Ensure that it is a number and stop the keypress
-        if (event.keyCode < 48 || event.keyCode > 57 ) {
-            event.preventDefault(); 
-        }   
-    }
-}
 
 </script>
 @endpush
