@@ -87,13 +87,12 @@ input[type=number]::-webkit-outer-spin-button {
 
     <div class='panel panel-default noselect' id='st_form'>
         <div class='panel-heading'>  
-        <h3 class="box-title text-center"><b>Stock Transfer Form</b></h3>
+        <h3 class="box-title text-center"><b>Stock Transfer GIS Form</b></h3>
         </div>
 
         <div class='panel-body'>
             <section id="loading">
                 <div id="loading-content"></div>
-                <span>Please wait...</span>
             </section>
             <div class="col-md-12">
                 <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE DIGITS CODE**</b></p>
@@ -438,8 +437,8 @@ $(document).ready(function() {
                             $('#item_search').val('');
                             var new_row = '<tr class="nr" id="rowid' + data.items.digits_code + '">' +
                                 '<td><input class="form-control text-center" type="text" name="digits_code[]" readonly value="' + data.items.digits_code + '"></td>' +
-                                '<td><input class="form-control" type="text" name="item_description[]" readonly value="' + data.items.item_description + '"></td>' +
-                                '<td><input class="form-control" type="text" name="location" readonly value="' + data.items.location + '"><input type="hidden" name="location_id_from" value="' + data.items.location_id_from + '"><input type="hidden" name="sub_location_id_from" value="' + data.items.sub_location_id_from + '"></td>' +
+                                '<td><input class="form-control text-center" type="text" name="item_description[]" readonly value="' + data.items.item_description + '"></td>' +
+                                '<td><input class="form-control text-center" type="text" name="location" readonly value="' + data.items.location + '"><input type="hidden" name="location_id_from" value="' + data.items.location_id_from + '"><input type="hidden" name="sub_location_id_from" value="' + data.items.sub_location_id_from + '"></td>' +
                                 '<td class="scan scanqty' + data.items.digits_code + '"><input class="form-control text-center scan_qty" type="number" min="0" max="9999" id="st_qty" value="0" name="st_quantity[]" item-qty="'+data.items.orig_qty+'">' + 
                                 '<td class="text-center"><button id="' + data.items.digits_code + '" class="btn btn-xs btn-danger delete_item"><i class="glyphicon glyphicon-trash"></i></button></td>' +
                                 '</tr>';
@@ -609,7 +608,8 @@ $(document).ready(function() {
                 success: function (data) {
                     $('#transfer_transit').val(data.pos_warehouse_transit);
                     $('#transfer_branch').val(data.pos_warehouse_branch);
-                    $('#item_search').removeAttr("disabled");
+                    // $('#item_search').removeAttr("disabled");
+                    changeFocus();
                 }
         });
     });
@@ -632,6 +632,7 @@ $(document).ready(function() {
                 });
             },0);
         }
+        changeFocus();  
     });
 
     $('#transport_type').change(function () {
@@ -651,6 +652,7 @@ $(document).ready(function() {
             $('#hand_carrier').removeAttr("required");
             $('#hand_carrier').val('');
         }
+        changeFocus();
     });
     
     $('#reason').change(function () {
@@ -680,6 +682,7 @@ $(document).ready(function() {
                 });
             },0);
         }
+        changeFocus();
     });
 
     $("#btnSubmit").click(function() {

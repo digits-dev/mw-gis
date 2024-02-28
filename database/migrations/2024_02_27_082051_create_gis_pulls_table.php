@@ -20,11 +20,16 @@ class CreateGisPullsTable extends Migration
             $table->integer('quantity_total')->nullable();
             $table->string('memo')->nullable();
             $table->integer('stores_id')->nullable();
+            $table->integer('location_id_from')->nullable();
+            $table->integer('sub_location_id_from')->nullable();
             $table->string('location_from')->nullable();
             $table->integer('stores_id_destination')->nullable();
+            $table->integer('location_id_to')->nullable();
+            $table->integer('sub_location_id_to')->nullable();
             $table->string('location_to')->nullable();
             $table->integer('approved_by')->nullable();
             $table->dateTime('approved_at')->nullable();
+            $table->string('approver_comments')->nullable();
             $table->integer('received_by')->nullable();
             $table->dateTime('received_at')->nullable();
             $table->integer('rejected_by')->nullable();

@@ -130,8 +130,6 @@
 			$this->index_button = array();
 			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver"])){
 				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
-				$this->index_button[] = ['label'=>'Create GIS STS','url'=>route('st.gis.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
-			
 			}
 		
 			

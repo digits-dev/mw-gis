@@ -1,17 +1,13 @@
 <?php namespace App\Http\Controllers;
 
 	use Session;
+	use Request;
 	use DB;
 	use CRUDBooster;
-	use Illuminate\Support\Facades\Input;
-	use Illuminate\Support\Facades\File;
-	use Illuminate\Http\Request;
-	use App\ApprovalMatrix;
-	use App\GisPullLines;
-	use App\GisPull;
 
-	class AdminStoreTransferGisController extends \crocodicstudio\crudbooster\controllers\CBController {
-		private const Pending = 1;
+	class AdminStGisReceivingController extends \crocodicstudio\crudbooster\controllers\CBController {
+		private const ForReceiving = 2;
+		private const Closed       = 4;
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -41,6 +37,7 @@
 			$this->col[] = ["label"=>"From Location","name"=>"stores_id","join"=>"stores,bea_so_store_name"];
 			$this->col[] = ["label"=>"To Location","name"=>"stores_id_destination","join"=>"stores,bea_so_store_name"];
 			$this->col[] = ["label"=>"Transport Type","name"=>"transport_types_id","join"=>"transport_types,transport_type"];
+			
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
@@ -75,7 +72,9 @@
 	        | 
 	        */
 	        $this->addaction = array();
-			//$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('gis-details').'/[ref_number]','icon'=>'fa fa-eye','color'=>'primary'];
+			if(CRUDBooster::isUpdate()) {
+				$this->addaction[] = ['title'=>'Update','url'=>CRUDBooster::mainpath('getStForReceiving/[id]'),'icon'=>'fa fa-pencil', "showIf"=>"[status_id] == ".self::ForReceiving."","color"=>"success"];
+			}
 
 	        /* 
 	        | ---------------------------------------------------------------------- 
@@ -112,11 +111,7 @@
 	        | 
 	        */
 	        $this->index_button = array();
-			$gashapon = DB::table('stores')->where('id',(int)(implode("",CRUDBooster::myStore())))->first();
-	
-			if(CRUDBooster::getCurrentMethod() == 'getIndex' && in_array(explode(".",$gashapon->bea_so_store_name)[0],["GASHAPON"])){
-				$this->index_button[] = ['label'=>'Create GIS STS','url'=>route('st.gis.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
-			}
+
 
 
 	        /* 
@@ -236,10 +231,12 @@
 	    |
 	    */
 	    public function hook_query_index(&$query) {
-			if(CRUDBooster::isSuperadmin()){
-				$query->whereNull('gis_pulls.deleted_at')->orderBy('gis_pulls.status_id', 'DESC')->orderBy('gis_pulls.id', 'DESC');
+	        if(CRUDBooster::isSuperadmin()){
+				$query->whereNull('gis_pulls.deleted_at')->orderBy('gis_pulls.status_id', 'DESC')->where('gis_pulls.status_id', self::ForReceiving)->orderBy('gis_pulls.id', 'DESC');
 			}else{
-				$query->where('gis_pulls.stores_id', CRUDBooster::myStore());
+				$query->where('gis_pulls.status_id', self::ForReceiving)
+					->where('gis_pulls.stores_id_destination', CRUDBooster::myStore());
+
 			}
 	    }
 
@@ -270,7 +267,7 @@
 				}else if($column_value == "REJECTED"){
 					$column_value = '<span class="label label-danger">REJECTED</span>';
 				}
-			}
+			}  
 			if($column_index == 5){
 				if($column_value == "Logistics"){
 					$column_value = '<span class="label label-default">LOGISTICS</span>';
@@ -314,7 +311,28 @@
 	    | 
 	    */
 	    public function hook_before_edit(&$postdata,$id) {        
-	        //Your code here
+			$header = DB::table('gis_pulls')->where('id',$id)->first();
+			$items = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+
+	        $postdata['status_id']          = self::Closed;
+			$postdata['received_by']        = CRUDBooster::myId();
+			$postdata['received_at']        = date('Y-m-d H:i:s');
+
+			//ADD QTY IN GIS INVENTORY LINES TO TRANSFER LOCATION
+			foreach($items as $key => $item){
+				DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $item->item_code,
+					'inventory_capsules.locations_id' => $header->location_id_to
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$header->sub_location_id_to)
+				->update([
+					'qty' => DB::raw("qty + $item->quantity"),
+					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+				]);
+			}
 
 	    }
 
@@ -354,201 +372,31 @@
 
 	    }
 
-		public function getGisScan(){
+		public function getStForReceiving($id){
+			if(!CRUDBooster::isRead() && $this->global_privilege == false || $this->button_detail == false) {    
+				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
+
 			$this->cbLoader();
-
 			$data = array();
-			
-			$data['page_title'] = 'Create GIS STS';
-
-			if(CRUDBooster::isSuperadmin()){
-				$data['transfer_from'] = DB::table('stores')
-				->select('id','pos_warehouse','pos_warehouse_transit','pos_warehouse_name')
-				->where('status', 'ACTIVE')
-				->orderBy('pos_warehouse_name', 'ASC')
-				->get();
-			}
-			else{
-				$data['transfer_from'] = DB::table('stores')
-				->select('id','pos_warehouse','pos_warehouse_transit','pos_warehouse_name','sts_group')
-				->whereIn('id',CRUDBooster::myStore())
-				->where('status', 'ACTIVE')
-				->orderBy('pos_warehouse_name', 'ASC')
-				->get();
-			}
-
-			$data['reasons'] = DB::table('reason')
-				->select('id','pullout_reason')
-				->where('transaction_type_id',4) //STS
-				->where('status','ACTIVE')
-				->get();
-			
-			$data['transport_types'] = DB::table('transport_types')
-				->select('id','transport_type')
-				->where('status','ACTIVE')
-				->get();
-            
-			
-			$data['transfer_to'] = DB::table('stores')
-				->select('id','pos_warehouse','pos_warehouse_name')
-				->whereNotIn('id',CRUDBooster::myStore())
-				->where('bea_so_store_name','LIKE','%'.'GASHAPON'.'%')
-				->where('status','ACTIVE')
-				->orderBy('pos_warehouse_name', 'ASC')
-				->get();
-			
-			$this->cbView("stock-transfer.scan-gis", $data);
-			
-			
-		}
-
-		public function scanItemSearchGis(Request $request){
-			$data = array();
-			$data['status_no'] = 0;
-			$data['message'] ='No item found!';
-			$mw_location = DB::table('stores')->where('id',(int)(implode("",CRUDBooster::myStore())))->first();
-			//get location
-			$location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
-			->where('location_name',$mw_location->bea_so_store_name)->first();
-
-			//get sublocation
-			$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-			->where('location_id',$location->id)->where('description','STOCK ROOM')->first();
-
-			$inventory_gis = DB::connection('gis')->table('inventory_capsules')
-			->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
-			->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
-			->where([
-				'items.digits_code' => $request->item_code,
-				'inventory_capsules.locations_id' => $location->id
-			])
-			->where('inventory_capsule_lines.sub_locations_id',$sublocation->id)
-			->first();
-			if($inventory_gis && $inventory_gis->qty >= 0) {
-				$data['status_no'] = 1;
-				$data['message'] ='Item found!';
-				$return_data['digits_code'] = $inventory_gis->digits_code;
-				$return_data['item_description'] = $inventory_gis->item_description;
-				$return_data['location'] = $location->location_name;
-				$return_data['location_id_from'] = $location->id;
-				$return_data['sub_location_id_from'] = $sublocation->id;
-				$return_data['orig_qty'] = $inventory_gis->qty;
-				$data['items'] = $return_data;
-			}
-			echo json_encode($data);
-            exit;
-		}
-
-		public function saveCreateGisST(Request $request){
-			$validator = \Validator::make($request->all(), [
-				'transport_type' => 'required',
-				'digits_code' => 'required',
-				'transfer_from' => 'required',
-				'transfer_to' => 'required',
-				'reason' => 'required',
-			],
-			[
-				'transport_type.required' => 'You have to choose transport by.',
-				'digits_code.required' => 'You have to add stock transfer items.',
-				'transfer_to.required' => 'You have to choose transfer to store.',
-				'transfer_from.required' => 'You have to choose transfer from store.',
-				'reason.required' => 'You have to choose transfer reason.',
-			]);
-	
-			if ($validator->fails()) {
-				return redirect()->back()
-				->withErrors($validator)
-				->withInput();
-			}
-			$to_mw_location = DB::table('stores')->where('id',$request->stores_id_destination)->first();
-			$to_gis_location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
-			->where('location_name',$to_mw_location->bea_so_store_name)->first();
-			$to_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-			->where('location_id',$to_gis_location->id)->where('description','STOCK ROOM')->first();
-			if(!$to_gis_location){
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Location in GIS not match!','danger')->send();
-			}
-			foreach ($request->digits_code as $key => $val) {
-				$isToLocationExist = DB::connection('gis')->table('inventory_capsules')
-				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
-				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
-				->where([
-					'items.digits_code' => $val,
-					'inventory_capsules.locations_id' => $to_gis_location->id
-				])
-				->where('inventory_capsule_lines.sub_locations_id',$to_gis_sub_location->id)
-				->exists();
-				if(!$isToLocationExist){
-					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Jan Code not exist in location to transfer!','danger')->send();
-				}
-			}
-			//CREATE HEADER
-			$count_header = DB::table('gis_pulls')->count();
-			$header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			
-			$st_ref_no	  = "ST-".$header_ref;
-
-			$getLastId = GisPull::Create(
-				[
-					'ref_number'             => $st_ref_no,
-					'status_id'              => self::Pending,
-					'quantity_total'         => $request->total_quantity,
-					'memo'                   => $request->memo,
-					'stores_id'              => (int)(implode("",CRUDBooster::myStore())),
-					'location_id_from'       => $request->location_id_from,
-					'sub_location_id_from'   => $request->sub_location_id_from,
-					'location_from'          => $request->transfer_from,
-					'stores_id_destination'  => $request->stores_id_destination,
-					'location_id_to'         => $to_gis_location->id,
-					'sub_location_id_to'     => $to_gis_sub_location->id,
-					'location_to'            => $request->transfer_to,
-					'transport_types_id'     => $request->transport_type,
-					'reason_id'              => $request->reason, 
-					'transfer_date'          => $request->transfer_date,
-					'hand_carrier'           => $request->hand_carrier,
-					'created_date'           => date('Y-m-d'),
-					'created_at'             => date('Y-m-d H:i:s')
-				]
-			);     
-
-			$id = $getLastId->id;
-			$st_header = DB::table('gis_pulls')->where('id',$id)->first();
-			
-			foreach ($request->digits_code as $key_item => $value_item) {
-				$st_qty = str_replace(',', '',$request->st_quantity[$key_item]); 
-				//INSERT IN MW GIS PULL TABLE
-				$stDetails = [
-					'gis_pull_id'      => $id,
-					'item_code'        => $value_item,
-					'item_description' => $request->item_description[$key_item],
-					'quantity'         => $st_qty,
-					'created_at'       => date('Y-m-d H:i:s')
-				];
-
-				//UPDATE IN GIS INVENTORY LINES
-				DB::connection('gis')->table('inventory_capsules')
-				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
-				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
-				->where([
-					'items.digits_code' => $value_item,
-					'inventory_capsules.locations_id' => $request->location_id_from
-				])
-				->where('inventory_capsule_lines.sub_locations_id',$request->sub_location_id_from)
-				->update([
-					'qty' => DB::raw("qty - $st_qty"),
-					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
-				]);
-
-				//INSERT IN MW GIS PULL LINES
-				$record = GisPullLines::insert($stDetails);
-			}
-
-			if($record){
-				CRUDBooster::redirect(CRUDBooster::mainpath(), trans("Stock transfer has been created!",['reference_number'=>$st_header->ref_number]), 'info');
-            
-			}else{
-                CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! No stock transfer has been created','danger')->send();
-            }
-
+			$data['page_title'] = 'Stock Transfer GIS Details';
+			$data['header'] = DB::table('gis_pulls')->where('gis_pulls.id',$id)
+								->leftjoin('reason','gis_pulls.reason_id','reason.id')
+								->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
+								->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
+								->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
+								->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
+								->select('gis_pulls.*',
+										 'gis_pulls.id AS gp_id',
+										 'reason.*',
+										 'approver.name AS approver',
+										 'receiver.name AS receiver',
+										 'rejector.name AS rejector',
+										 'transport_types.transport_type'
+										 )
+								->first();
+			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+			$this->cbView("stock-transfer.gis-st-for-receiving", $data);
 		}
 
 		public function getDetail($id){
@@ -575,7 +423,8 @@
 										 )
 								->first();
 			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
-			// dd($data['header']);
+			// dd($data['items'],$data['header']);
 			$this->cbView("stock-transfer.gis-st-detail", $data);
 		}
+
 	}

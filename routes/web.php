@@ -145,8 +145,12 @@ Route::get('/admin/store_transfers_gis/create-gis-sts','AdminStoreTransferGisCon
 Route::post('/admin/search_scan_items_gis','AdminStoreTransferGisController@scanItemSearchGis')->name('scanItemSearchGis');
 Route::post('/admin/st_gis_creation','AdminStoreTransferGisController@saveCreateGisST')->name('saveCreateGisST');
 Route::get('/admin/store_transfers_gis/gis-details/{ref_number}','AdminStoreTransferGisController@getDetail')->name('st.gis-detail');
+//Store GIS ST Approval
+Route::get('/admin/gis_pull_approval/getRequestApproval/{id}','AdminGisPullApprovalController@getRequestApproval')->name('st.gis.approval');
+//Store GIS ST For Receiving
+Route::get('/admin/st_gis_receiving/getStForReceiving/{id}','AdminStGisReceivingController@getStForReceiving')->name('st.gis.receiving');
 
-//ST Approval
+ //ST Approval
 Route::get('/admin/transfer_approval/review/{st_number}','AdminStoreTransferApprovalController@getApproval')->name('st-approval.review');
 Route::get('/admin/transfer_approval/details/{st_number}','AdminStoreTransferApprovalController@getDetail')->name('st-approval.detail');
 Route::post('/admin/st_approval','AdminStoreTransferApprovalController@saveReviewST')->name('saveReviewST');

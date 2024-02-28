@@ -45,7 +45,7 @@ table.table.table-bordered th {
 
         <div class='panel-body' id="st-details">
 
-            <div class="col-md-4">
+            <div class="col-md-5">
                 <div class="table-responsive">
                     <table class="table table-bordered" id="st-header-1">
                         <tbody>
@@ -70,12 +70,25 @@ table.table.table-bordered th {
                                 <tr>
                                     <td width="30%"><b>Approved By:</b></td>
                                     <td>{{ $header->approver }} / {{ $header->approved_at != null ? date('M d, Y',strtotime($header->approved_at)) : "" }}</td>
-                                    
                                 </tr>
                             @elseif(!is_null($header->rejector) || !empty($header->rejector))
                                 <tr>
                                     <td width="30%"><b>Rejected By:</b></td>
                                     <td>{{ $header->rejector }} / {{ $header->rejected_at != null ? date('M d, Y',strtotime($header->rejected_at)) : "" }}</td>
+                                        
+                                </tr>
+                            
+                            @endif
+                            @if(!is_null($header->approver_comments) || !empty($header->approver_comments))
+                                <tr>
+                                    <td width="30%"><b>Approver comments:</b></td>
+                                    <td width="50%">{{ $header->approver_comments }}</td>
+                                </tr>
+                            @endif
+                            @if(!is_null($header->receiver) || !empty($header->receiver))
+                                <tr>
+                                    <td width="30%"><b>Received By:</b></td>
+                                    <td width="50%">{{ $header->receiver }} / {{ date('M d, Y',strtotime($header->received_at)) }}</td>
                                         
                                 </tr>
                             @endif
@@ -84,21 +97,21 @@ table.table.table-bordered th {
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-2">
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-5">
                 <div class="table-responsive">
                     <table class="table table-bordered" id="st-header-2">
                         <tbody>
-                            <tr>
+                            {{-- <tr>
                                 <td style="width: 30%">
                                     <b>Transfer Date:</b>
                                 </td>
                                 <td>
                                     @if(!empty($header->scheduled_at)) {{ $header->scheduled_at }} @else {{ $header->transfer_date }} @endif  
                                 </td>
-                            </tr>
+                            </tr> --}}
                             <tr>
                                 <td style="width: 30%">
                                     <b>Transport By:</b>
@@ -150,7 +163,7 @@ table.table.table-bordered th {
                                 @foreach ($items as $item)
                                     <tr>
                                         <td class="text-center">{{$item->item_code}} <input type="hidden" name="digits_code[]" value="{{ $item->digits_code }}"></td>
-                                        <td>{{$item->item_description}}<input type="hidden" name="price[]" value="{{ $item->price }}"/>
+                                        <td class="text-center">{{$item->item_description}}<input type="hidden" name="price[]" value="{{ $item->price }}"/>
                                         </td>
                                         <td class="text-center">{{$item->quantity}}<input type="hidden" name="st_quantity[]" id="stqty_{{ $item->item_code }}" value="{{ $item->quantity }}"/>
                                         </td>                                
