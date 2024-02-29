@@ -15,10 +15,10 @@
 			$this->orderby = "id,desc";
 			$this->global_privilege = false;
 			$this->button_table_action = true;
-			$this->button_bulk_action = true;
+			$this->button_bulk_action = false;
 			$this->button_action_style = "button_icon";
-			$this->button_add = true;
-			$this->button_edit = true;
+			$this->button_add = false;
+			$this->button_edit = false;
 			$this->button_delete = false;
 			$this->button_detail = true;
 			$this->button_show = true;
@@ -31,45 +31,17 @@
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
 			$this->col[] = ["label"=>"Ref Number","name"=>"ref_number"];
-			$this->col[] = ["label"=>"Status Id","name"=>"status_id","join"=>"status,id"];
-			$this->col[] = ["label"=>"Quantity Total","name"=>"quantity_total"];
-			$this->col[] = ["label"=>"Memo","name"=>"memo"];
-			$this->col[] = ["label"=>"Stores Id","name"=>"stores_id","join"=>"stores,bea_so_store_name"];
-			$this->col[] = ["label"=>"Location From","name"=>"location_id_from"];
-			$this->col[] = ["label"=>"Sub Location From","name"=>"sub_location_id_from"];
+			$this->col[] = ["label"=>"Status Id","name"=>"status_id","join"=>"st_status,status_description"];
+			$this->col[] = ["label"=>"Total Qty","name"=>"quantity_total"];
+			$this->col[] = ["label"=>"From Location","name"=>"stores_id","join"=>"stores,bea_so_store_name"];
+			$this->col[] = ["label"=>"To Location","name"=>"stores_id_destination","join"=>"stores,bea_so_store_name"];
+			$this->col[] = ["label"=>"Transport Type","name"=>"transport_types_id","join"=>"transport_types,transport_type"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
 
 			# END FORM DO NOT REMOVE THIS LINE
-
-			# OLD START FORM
-			//$this->form = [];
-			//$this->form[] = ["label"=>"Ref Number","name"=>"ref_number","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Status Id","name"=>"status_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"status,id"];
-			//$this->form[] = ["label"=>"Quantity Total","name"=>"quantity_total","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Memo","name"=>"memo","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Stores Id","name"=>"stores_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"stores,bea_so_store_name"];
-			//$this->form[] = ["label"=>"Location From","name"=>"location_id_from","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Sub Location From","name"=>"sub_location_id_from","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Location From","name"=>"location_from","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Stores Destination","name"=>"stores_id_destination","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Location To","name"=>"location_id_to","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Sub Location To","name"=>"sub_location_id_to","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Location To","name"=>"location_to","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Approved By","name"=>"approved_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Approved At","name"=>"approved_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Approver Comments","name"=>"approver_comments","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Received By","name"=>"received_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Received At","name"=>"received_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Rejected By","name"=>"rejected_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Rejected At","name"=>"rejected_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Transfer Date","name"=>"transfer_date","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Hand Carrier","name"=>"hand_carrier","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Transport Types Id","name"=>"transport_types_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"transport_types,id"];
-			//$this->form[] = ["label"=>"Reason Id","name"=>"reason_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"reason,id"];
-			# OLD END FORM
 
 			/* 
 	        | ---------------------------------------------------------------------- 
@@ -255,8 +227,13 @@
 	    |
 	    */
 	    public function hook_query_index(&$query) {
-	        //Your code here
-	            
+	        if(CRUDBooster::isSuperadmin()){
+				$query->whereNull('gis_pulls.deleted_at')->orderBy('gis_pulls.status_id', 'DESC')->orderBy('gis_pulls.id', 'DESC');
+			}elseif(in_array(CRUDBooster::myPrivilegeId(), [5])){
+				$query->where('gis_pulls.approved_by', CRUDBooster::myId());
+			}else{
+				$query->where('gis_pulls.received_by', CRUDBooster::myId());
+			}
 	    }
 
 	    /*
@@ -266,7 +243,35 @@
 	    |
 	    */    
 	    public function hook_row_index($column_index,&$column_value) {	        
-	    	//Your code here
+	    	if($column_index == 1){
+				if($column_value == "PENDING"){
+					$column_value = '<span class="label label-warning">PENDING</span>';
+				}else if($column_value == "FOR PICKLIST"){
+					$column_value = '<span class="label label-warning">FOR PICKLIST</span>';
+				}else if($column_value == "FOR PICK CONFIRM"){
+					$column_value = '<span class="label label-warning">FOR PICK CONFIRM</span>';
+				}else if($column_value == "FOR SCHEDULE"){
+					$column_value = '<span class="label label-warning">FOR SCHEDULE</span>';
+				}else if($column_value == "FOR RECEIVING"){
+					$column_value = '<span class="label label-warning">FOR RECEIVING</span>';
+				}else if($column_value == "RECEIVED"){
+					$column_value = '<span class="label label-success">RECEIVED</span>';
+				}else if($column_value == "VOID"){
+					$column_value = '<span class="label label-danger">VOID</span>';
+				}else if($column_value == "CLOSED"){
+					$column_value = '<span class="label label-danger">CLOSED</span>';
+				}else if($column_value == "REJECTED"){
+					$column_value = '<span class="label label-danger">REJECTED</span>';
+				}
+			}
+			if($column_index == 5){
+				if($column_value == "Logistics"){
+					$column_value = '<span class="label label-default">LOGISTICS</span>';
+				}
+				elseif($column_value == "Hand Carry"){
+					$column_value = '<span class="label label-primary">HAND CARRY</span>';
+				}
+			}
 	    }
 
 	    /*
@@ -342,9 +347,33 @@
 
 	    }
 
+		public function getDetail($id){
+			if(!CRUDBooster::isRead() && $this->global_privilege == false || $this->button_detail == false) {    
+				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
 
-
-	    //By the way, you can still create your own method in here... :) 
+			$this->cbLoader();
+			$data = array();
+			$data['page_title'] = 'Stock Transfer GIS Details';
+			$data['header'] = DB::table('gis_pulls')->where('gis_pulls.id',$id)
+								->leftjoin('reason','gis_pulls.reason_id','reason.id')
+								->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
+								->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
+								->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
+								->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
+								->select('gis_pulls.*',
+										 'gis_pulls.id AS gp_id',
+										 'reason.*',
+										 'approver.name AS approver',
+										 'receiver.name AS receiver',
+										 'rejector.name AS rejector',
+										 'transport_types.transport_type'
+										 )
+								->first();
+			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+			// dd($data['header']);
+			$this->cbView("stock-transfer.gis-st-detail", $data);
+		}
 
 
 	}
