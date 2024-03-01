@@ -44,6 +44,7 @@ table.table.table-bordered th {
             <form action="{{ route('saveSTSReceiving') }}" method="POST" id="st_received" autocomplete="off" role="form" enctype="multipart/form-data">
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
             <input type="hidden" name="st_number" id="st_number" value="{{$stDetails[0]->st_document_number}}"/>
+            <input type="hidden" name="isGis" id="isGis" value="{{$stDetails[0]->location_id_from}}"/>
             <input type="hidden" name="from_transfer_transit" id="from_transfer_transit" value="{{ $transfer_from->pos_warehouse_transit }}"/>
             <input type="hidden" name="from_transfer_branch" id="from_transfer_branch" value="{{ $transfer_from->pos_warehouse_transit_branch }}"/>
             <input type="hidden" name="transfer_to" id="transfer_to" value="{{ $transfer_to->pos_warehouse }}"/>
@@ -322,33 +323,44 @@ $(document).ready(function() {
                 success: function (data) {
                     
                     if (data.status_no == 1) {
-
                         digits_code = data.items.digits_code;   
                         serial = data.items.serialized;                       
                         $.playSound(ASSET_URL+'sounds/success.ogg');
-                        if(serial == 1){
-                            var sn = (($('#qty_'+digits_code).val() == '') ? 0 : $('#qty_'+digits_code).val());
-                            sn_field = sn;
-                            $('#scanned_item_code').text(digits_code);
-                            $('#serial_field').val('serial_number_'+digits_code+sn);
-                            $("#scan_serial").modal();
-                            $('#scan_serial').on('shown.bs.modal', function () {
-                                $('#scanned_serial').focus()
+                        if($('#isGis').val() == 'null' || $('#isGis').val() == null){
+                            if(serial == 1){
+                                var sn = (($('#qty_'+digits_code).val() == '') ? 0 : $('#qty_'+digits_code).val());
+                                sn_field = sn;
+                                $('#scanned_item_code').text(digits_code);
+                                $('#serial_field').val('serial_number_'+digits_code+sn);
+                                $("#scan_serial").modal();
+                                $('#scan_serial').on('shown.bs.modal', function () {
+                                    $('#scanned_serial').focus()
+                                });
+                                
+                                // $('#serial_number_'+digits_code+sn).focus();
+                                // $('#serial_number_'+digits_code+sn).val($('#scanned_serial').val());
+                            }
+                            //set rcv qty
+                            $("#qty_" + digits_code).val(function (i, oldval) {
+                                return ++oldval;
                             });
-                            
-                            // $('#serial_number_'+digits_code+sn).focus();
-                            // $('#serial_number_'+digits_code+sn).val($('#scanned_serial').val());
-                        }
-                        //set rcv qty
-                        $("#qty_" + digits_code).val(function (i, oldval) {
-                            return ++oldval;
-                        });
 
-                        $('.scanqty' + digits_code).css('background-color', 'yellow');
+                            $('.scanqty' + digits_code).css('background-color', 'yellow');
+                            
+                            setTimeout(function(){ 
+                                checkQty();
+                            },0);
+                        }else{
+                            $("#qty_" + digits_code).val(function (i, oldval) {
+                                return ++oldval;
+                            });
+                            $('.scanqty' + digits_code).css('background-color', 'yellow');
+                            $("#qty_" + digits_code).attr('readonly', false); 
+                            setTimeout(function(){ 
+                                checkQty();
+                            },0);
+                        }
                         
-                        setTimeout(function(){ 
-                            checkQty();
-                        },0);
 
                         $("#totalQuantity").val(calculateTotalQty());
                         
@@ -361,7 +373,13 @@ $(document).ready(function() {
                         },0);
                         $.playSound(ASSET_URL+'sounds/error.ogg');
                     }
-                    if(serial != 1){
+                    if($('#isGis').val() == 'null' || $('#isGis').val() == null){
+                        if(serial != 1){
+                            $('#item_search').removeAttr("disabled");
+                            $('#item_search').val('');
+                            $('#item_search').focus();
+                        }
+                    }else{
                         $('#item_search').removeAttr("disabled");
                         $('#item_search').val('');
                         $('#item_search').focus();

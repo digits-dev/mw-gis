@@ -375,7 +375,7 @@
 
 			$items = DB::table('pos_pull')
 			->where('st_document_number',$st_number)
-			->select('id','item_code','quantity')
+			->select('id','item_code','quantity','item_description')
 			->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
@@ -396,7 +396,7 @@
 					'digits_code' => $value->item_code,
 					'bea_item_id' => $item_detail->bea_item_id,
 					'upc_code' => $item_detail->upc_code,
-					'item_description' => $item_detail->item_description,
+					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
 					'price' => $item_detail->store_cost,
 					'st_quantity' => $value->quantity,
 					'st_serial_numbers' => $serial_data
@@ -748,69 +748,120 @@
 		
 		public function saveSTSReceiving(Request $request)
 		{
-		    
-		    
-			$posItemDetails = array();
-
-			foreach ($request->digits_code as $key_item => $value_item) {
-				$serial = $value_item.'_serial_number';
-				
-				if(!empty($request->$serial)){
-					
-					foreach ($request->$serial as $key_serial => $value_serial) {
+		    $isGisSt = DB::table('pos_pull')->where('st_document_number',$request->st_number)->first();
+			if(!$isGisSt->location_id_from){
+				$posItemDetails = array();
+				foreach ($request->digits_code as $key_item => $value_item) {
+					$serial = $value_item.'_serial_number';
+					if(!empty($request->$serial)){
+						foreach ($request->$serial as $key_serial => $value_serial) {
+							$posItemDetails[$value_item.'-'.$key_serial] = [
+								'item_code' => $value_item,
+								'quantity' => 1,
+								'serial_number' => $value_serial,
+								'item_price' => $request->price[$key_item]
+							];
+						}
 						
-						$posItemDetails[$value_item.'-'.$key_serial] = [
+					}
+					else{
+						$posItemDetails[$value_item.'-'.$key_item] = [
 							'item_code' => $value_item,
-							'quantity' => 1,
-							'serial_number' => $value_serial,
+							'quantity' => $request->st_quantity[$key_item],
 							'item_price' => $request->price[$key_item]
 						];
+						
 					}
-					
+				}
+
+				$refcode = $request->st_number;
+				$transfer_dest = (empty($request->transfer_to_rma)) ? $request->transfer_to : $request->transfer_to_rma;
+				$transfer_branch = (empty($request->from_transfer_rma_branch)) ? $request->from_transfer_branch : $request->from_transfer_rma_branch;
+				$transfer_origin = (empty($request->from_transfer_rma)) ? $request->from_transfer_transit : $request->from_transfer_rma;
+				
+				$stockTransfers = app(POSPullController::class)->getStockTransferByRef($request->st_number); //check if already posted
+				$record = false;
+				if($stockTransfers['data']['record']['fstatus_flag'] != 'POSTED'){
+					$postedST = app(POSPushController::class)->posCreateStockTransfer($refcode, $transfer_branch, $transfer_origin, $transfer_dest, 'STS', $posItemDetails);
+					\Log::info('sts create rcv ST: '.json_encode($postedST));
+					$record = false;
+					$st_number = $postedST['data']['record']['fdocument_no'];
+					if($postedST['data']['record']['fresult'] != "ERROR"){
+						DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
+							'status' => 'RECEIVED',
+							'received_st_number' => $st_number,
+							'received_st_date' => date('Y-m-d'),
+							'updated_at' => date('Y-m-d H:i:s')
+						]);
+		
+						$record = true;
+					}
+				}
+				
+				if($record)
+				{
+					CRUDBooster::insertLog(trans("crudbooster.sts_received", ['ref_number' =>$request->st_number]));
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' received successfully!','success')->send();
 				}
 				else{
-					
-					$posItemDetails[$value_item.'-'.$key_item] = [
-						'item_code' => $value_item,
-						'quantity' => $request->st_quantity[$key_item],
-						'item_price' => $request->price[$key_item]
-					];
-					
+					CRUDBooster::redirect(CRUDBooster::mainpath(),$postedST['data']['record']['errors']['error'].'. ST# '.$request->st_number.' failed to be received!','danger')->send();
 				}
+			}else{
+				$items = DB::table('pos_pull')->where('st_document_number',$request->st_number)->get();
+				$to_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+					->where('location_id',$isGisSt->location_id_to)->where('description','IN TRANSIT')->first();
+				DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
+					'status'      => 'RECEIVED',
+					'received_by' => CRUDBooster::myId(),
+					'received_at' => date('Y-m-d H:i:s'),
+					'updated_at'  => date('Y-m-d H:i:s')
+				]);
+				//ADD QTY IN GIS INVENTORY LINES TO LOCATION
+				foreach($items as $key => $item){
+					DB::connection('gis')->table('inventory_capsules')
+					->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+					->where([
+						'items.digits_code' => $item->item_code,
+						'inventory_capsules.locations_id' => $item->location_id_to
+					])
+					->where('inventory_capsule_lines.sub_locations_id',$item->sub_location_id_to)
+					->update([
+						'qty' => DB::raw("qty + $item->quantity"),
+						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+					]);
+					//ADD GIS MOVEMENT HISTORY
+					//get item code
+					$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
+					$item_code = DB::connection('gis')->table('items')->where('digits_code',$item->item_code)->first();
+					$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+					->where('description','STOCK TRANSFER')->first();
+					DB::connection('gis')->table('history_capsules')->insert([
+						'reference_number' => $request->st_number,
+						'item_code' => $item_code->digits_code2,
+						'capsule_action_types_id' => $capsuleAction->id,
+						'locations_id' => $item->location_id_to,
+						'from_sub_locations_id' => $item->sub_location_id_to,
+						'to_sub_locations_id' => $to_intransit_gis_sub_location->id,
+						'qty' =>$item->quantity,
+						'created_at' => date('Y-m-d H:i:s'),
+						'created_by' => $gis_mw_name->id
+					]);
+					DB::connection('gis')->table('history_capsules')->insert([
+						'reference_number' => $request->st_number,
+						'item_code' => $item_code->digits_code2,
+						'capsule_action_types_id' => $capsuleAction->id,
+						'locations_id' => $item->location_id_to,
+						'from_sub_locations_id' => $to_intransit_gis_sub_location->id,
+						'to_sub_locations_id' => $item->sub_location_id_to,
+						'qty' => -1 * abs($item->quantity),
+						'created_at' => date('Y-m-d H:i:s'),
+						'created_by' => $gis_mw_name->id
+					]);
+				}
+				CRUDBooster::insertLog(trans("crudbooster.sts_received", ['ref_number' =>$request->st_number]));
+				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' received successfully!','success')->send();
 			}
-
-			$refcode = $request->st_number;
-			$transfer_dest = (empty($request->transfer_to_rma)) ? $request->transfer_to : $request->transfer_to_rma;
-			$transfer_branch = (empty($request->from_transfer_rma_branch)) ? $request->from_transfer_branch : $request->from_transfer_rma_branch;
-			$transfer_origin = (empty($request->from_transfer_rma)) ? $request->from_transfer_transit : $request->from_transfer_rma;
-			
-			$stockTransfers = app(POSPullController::class)->getStockTransferByRef($request->st_number); //check if already posted
-			$record = false;
-            if($stockTransfers['data']['record']['fstatus_flag'] != 'POSTED'){
-    			$postedST = app(POSPushController::class)->posCreateStockTransfer($refcode, $transfer_branch, $transfer_origin, $transfer_dest, 'STS', $posItemDetails);
-    			\Log::info('sts create rcv ST: '.json_encode($postedST));
-    			$record = false;
-    			$st_number = $postedST['data']['record']['fdocument_no'];
-    			if($postedST['data']['record']['fresult'] != "ERROR"){
-    				DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
-    					'status' => 'RECEIVED',
-    					'received_st_number' => $st_number,
-    					'received_st_date' => date('Y-m-d'),
-    					'updated_at' => date('Y-m-d H:i:s')
-    				]);
-    
-    				$record = true;
-    			}
-            }
-			
-			if($record)
-			{
-			    CRUDBooster::insertLog(trans("crudbooster.sts_received", ['ref_number' =>$request->st_number]));
-                CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' received successfully!','success')->send();
-			}
-            else{
-                CRUDBooster::redirect(CRUDBooster::mainpath(),$postedST['data']['record']['errors']['error'].'. ST# '.$request->st_number.' failed to be received!','danger')->send();
-            }
 		}
 
 		public function saveSTSOnlineReceiving(Request $request)

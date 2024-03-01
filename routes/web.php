@@ -141,7 +141,7 @@ Route::get('/admin/store_transfers/void-st/{st_number}','AdminStoreTransferContr
 Route::post('/admin/st_creation_online','AdminStoreTransferController@saveCreateOnlineST')->name('saveCreateOnlineST');
 
 //Store GIS ST Creation
-Route::get('/admin/store_transfers_gis/create-gis-sts','AdminStoreTransferGisController@getGisScan')->name('st.gis.scanning');
+Route::get('/admin/store_transfers/create-gis-sts','AdminStoreTransferGisController@getGisScan')->name('st.gis.scanning');
 Route::post('/admin/search_scan_items_gis','AdminStoreTransferGisController@scanItemSearchGis')->name('scanItemSearchGis');
 Route::post('/admin/st_gis_creation','AdminStoreTransferGisController@saveCreateGisST')->name('saveCreateGisST');
 Route::get('/admin/store_transfers_gis/gis-details/{ref_number}','AdminStoreTransferGisController@getDetail')->name('st.gis-detail');

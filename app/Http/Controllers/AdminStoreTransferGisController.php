@@ -12,10 +12,10 @@
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
 	class AdminStoreTransferGisController extends \crocodicstudio\crudbooster\controllers\CBController {
-		private const Pending = 1;
-		private const Void    = 5;
-		private const ForSchedule    = 6;
-		private const ForReceiving   = 2;
+		private const Pending = 'PENDING';
+		private const Void    = 'VOID';
+		private const ForSchedule    = 'FOR SCHEDULE';
+		private const ForReceiving   = 'FOR RECEIVING';
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -484,6 +484,8 @@
 			->where('location_name',$to_mw_location->bea_so_store_name)->first();
 			$to_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 			->where('location_id',$to_gis_location->id)->where('description','STOCK ROOM')->first();
+			$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+			->where('location_id',$request->location_id_from)->where('description','IN TRANSIT')->first();
 			if(!$to_gis_location){
 				CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Location in GIS not match!','danger')->send();
 			}
@@ -501,48 +503,63 @@
 					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Jan Code not exist in location to transfer!','danger')->send();
 				}
 			}
-			//CREATE HEADER
-			$count_header = DB::table('gis_pulls')->count();
+			// //CREATE HEADER
+			$count_header = DB::table('pos_pull')->count();
 			$header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			
 			$st_ref_no	  = "ST-".$header_ref;
 
-			$getLastId = GisPull::Create(
-				[
-					'ref_number'             => $st_ref_no,
-					'status_id'              => self::Pending,
-					'quantity_total'         => $request->total_quantity,
-					'memo'                   => $request->memo,
-					'stores_id'              => (int)(implode("",CRUDBooster::myStore())),
-					'location_id_from'       => $request->location_id_from,
-					'sub_location_id_from'   => $request->sub_location_id_from,
-					'location_from'          => $request->transfer_from,
-					'stores_id_destination'  => $request->stores_id_destination,
-					'location_id_to'         => $to_gis_location->id,
-					'sub_location_id_to'     => $to_gis_sub_location->id,
-					'location_to'            => $request->transfer_to,
-					'transport_types_id'     => $request->transport_type,
-					'reason_id'              => $request->reason, 
-					'transfer_date'          => $request->transfer_date,
-					'hand_carrier'           => $request->hand_carrier,
-					'created_date'           => date('Y-m-d'),
-					'created_at'             => date('Y-m-d H:i:s')
-				]
-			);     
+			// $getLastId = GisPull::Create(
+			// 	[
+			// 		'ref_number'             => $st_ref_no,
+			// 		'status_id'              => self::Pending,
+			// 		'quantity_total'         => $request->total_quantity,
+			// 		'memo'                   => $request->memo,
+			// 		'stores_id'              => (int)(implode("",CRUDBooster::myStore())),
+			// 		'location_id_from'       => $request->location_id_from,
+			// 		'sub_location_id_from'   => $request->sub_location_id_from,
+			// 		'location_from'          => $request->transfer_from,
+			// 		'stores_id_destination'  => $request->stores_id_destination,
+			// 		'location_id_to'         => $to_gis_location->id,
+			// 		'sub_location_id_to'     => $to_gis_sub_location->id,
+			// 		'location_to'            => $request->transfer_to,
+			// 		'transport_types_id'     => $request->transport_type,
+			// 		'reason_id'              => $request->reason, 
+			// 		'transfer_date'          => $request->transfer_date,
+			// 		'hand_carrier'           => $request->hand_carrier,
+			// 		'created_date'           => date('Y-m-d'),
+			// 		'created_at'             => date('Y-m-d H:i:s')
+			// 	]
+			// );     
 
-			$id = $getLastId->id;
-			$st_header = DB::table('gis_pulls')->where('id',$id)->first();
+			// $id = $getLastId->id;
+			// $st_header = DB::table('gis_pulls')->where('id',$id)->first();
 			
 			foreach ($request->digits_code as $key_item => $value_item) {
 				$st_qty = str_replace(',', '',$request->st_quantity[$key_item]); 
 				//INSERT IN MW GIS PULL TABLE
 				$stDetails = [
-					'gis_pull_id'      => $id,
-					'item_code'        => $value_item,
-					'item_description' => $request->item_description[$key_item],
-					'quantity'         => $st_qty,
-					'created_at'       => date('Y-m-d H:i:s')
+					'st_document_number'     => $st_ref_no,
+					'status'                 => self::Pending,
+					'memo'                   => $request->memo,
+					'stores_id'              => (int)(implode("",CRUDBooster::myStore())),
+					'location_id_from'       => $request->location_id_from,
+					'sub_location_id_from'   => $request->sub_location_id_from,
+					'wh_from'                => $request->transfer_from,
+					'stores_id_destination'  => $request->stores_id_destination,
+					'location_id_to'         => $to_gis_location->id,
+					'sub_location_id_to'     => $to_gis_sub_location->id,
+					'wh_to'                  => $request->transfer_to,
+					'transport_types_id'     => $request->transport_type,
+					'reason_id'              => $request->reason, 
+					'transfer_date'          => $request->transfer_date,
+					'hand_carrier'           => $request->hand_carrier,
+					'item_code'              => $value_item,
+					'item_description'       => $request->item_description[$key_item],
+					'quantity'               => $st_qty,
+					'created_date'           => date('Y-m-d'),
+					'created_at'             => date('Y-m-d H:i:s')
 				];
-
+				
 				//UPDATE IN GIS INVENTORY LINES
 				DB::connection('gis')->table('inventory_capsules')
 				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
@@ -557,15 +574,44 @@
 					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 				]);
 
+				//ADD GIS MOVEMENT HISTORY
+				//get item code
+				$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
+				$item_code = DB::connection('gis')->table('items')->where('digits_code',$value_item)->first();
+				$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+				->where('description','STOCK TRANSFER')->first();
+				DB::connection('gis')->table('history_capsules')->insert([
+					'reference_number' => $st_ref_no,
+					'item_code' => $item_code->digits_code2,
+					'capsule_action_types_id' => $capsuleAction->id,
+					'locations_id' => $request->location_id_from,
+					'from_sub_locations_id' => $request->sub_location_id_from,
+					'to_sub_locations_id' => $from_intransit_gis_sub_location->id,
+					'qty' => -1 * abs($st_qty),
+					'created_at' => date('Y-m-d H:i:s'),
+					'created_by' => $gis_mw_name->id
+				]);
+				DB::connection('gis')->table('history_capsules')->insert([
+					'reference_number' => $st_ref_no,
+					'item_code' => $item_code->digits_code2,
+					'capsule_action_types_id' => $capsuleAction->id,
+					'locations_id' => $request->location_id_from,
+					'from_sub_locations_id' => $from_intransit_gis_sub_location->id,
+					'to_sub_locations_id' => $request->sub_location_id_from,
+					'qty' => $st_qty,
+					'created_at' => date('Y-m-d H:i:s'),
+					'created_by' => $gis_mw_name->id
+				]);
+
 				//INSERT IN MW GIS PULL LINES
-				$record = GisPullLines::insert($stDetails);
+				$record = DB::table('pos_pull')->insert($stDetails);
 			}
 
 			if($record){
-				CRUDBooster::redirect(CRUDBooster::mainpath(), trans("Stock transfer has been created!",['reference_number'=>$st_header->ref_number]), 'info');
+				CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'), trans("Stock transfer has been created!"), 'info');
             
 			}else{
-                CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! No stock transfer has been created','danger')->send();
+                CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'),'Failed! No stock transfer has been created','danger')->send();
             }
 
 		}
@@ -578,9 +624,47 @@
 			$this->cbLoader();
 			$data = array();
 			$data['page_title'] = 'Stock Transfer GIS Details';
-			$data['header'] = GisPull::stGisHeader($id);
-			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
-			// dd($data['header']);
+			$data['stDetails'] = DB::table('pos_pull')
+				->join('reason', 'pos_pull.reason_id', '=', 'reason.id')
+				->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
+				->where('st_document_number', $st_number)
+				->select('pos_pull.*','reason.pullout_reason','transport_types.transport_type')
+				->get();
+			
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id)->first();
+
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id_destination)->first();
+
+			$items = DB::table('pos_pull')
+				->where('st_document_number',$st_number)
+				->select('id','item_code','quantity')
+				->get();
+
+			$data['stQuantity'] =  DB::table('pos_pull')
+				->where('st_document_number', $st_number)
+				->sum('quantity');
+
+			foreach ($items as $key => $value) {
+
+				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
+				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
+
+				$serial_data = array();
+				foreach ($serials as $serial) {
+					array_push($serial_data, $serial->serial_number);
+				}
+
+				$item_data[$key] = [
+					'digits_code' => $value->item_code,
+					'upc_code' => $item_detail->upc_code,
+					'item_description' => $item_detail->item_description,
+					'price' => $item_detail->store_cost,
+					'st_quantity' => $value->quantity,
+					'st_serial_numbers' => $serial_data
+				];
+			}
+
+			$data['items'] = $item_data;
 			$this->cbView("stock-transfer.gis-st-detail", $data);
 		}
 

@@ -91,6 +91,7 @@
 			if(CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeName() ,["LOG TM","LOG TL"])){
 				$this->addaction[] = ['title'=>'Schedule','url'=>CRUDBooster::mainpath('schedule').'/[st_document_number]','icon'=>'fa fa-calendar','color'=>'warning','showIf'=>"[status]=='FOR SCHEDULE'"];
 			}
+			
 			$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('details').'/[st_document_number]','icon'=>'fa fa-eye','color'=>'primary'];
 
 	        /* 
@@ -128,8 +129,10 @@
 	        | 
 	        */
 			$this->index_button = array();
-			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver"])){
+			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver","Gashapon Requestor"])){
 				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
+			}elseif(CRUDBooster::getCurrentMethod() == 'getIndex' && in_array(CRUDBooster::myPrivilegeId(),[27])){
+				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.gis.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
 			}
 		
 			
@@ -1100,7 +1103,7 @@
 
 			$items = DB::table('pos_pull')
 			->where('st_document_number',$st_number)
-			->select('id','item_code','quantity')
+			->select('id','item_code','quantity','item_description')
 			->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
@@ -1120,7 +1123,7 @@
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
 					'upc_code' => $item_detail->upc_code,
-					'item_description' => $item_detail->item_description,
+					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
 					'price' => $item_detail->store_cost,
 					'st_quantity' => $value->quantity,
 					'st_serial_numbers' => $serial_data
@@ -1134,19 +1137,76 @@
 
 		public function voidStockTransfer($st_number)
 		{
-			$voidST = app(POSPushController::class)->voidStockTransfer($st_number);
-			
-			if($voidST['data']['record']['fresult'] == "ERROR"){
-				$error = $voidST['data']['record']['errors']['error'];
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
-			}
-			else{
+			$isGisSt = DB::table('pos_pull')->where('st_document_number',$st_number)->first();
+			if(!$isGisSt->location_id_from){
+				$voidST = app(POSPushController::class)->voidStockTransfer($st_number);
+				
+				if($voidST['data']['record']['fresult'] == "ERROR"){
+					$error = $voidST['data']['record']['errors']['error'];
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
+				}
+				else{
+					DB::table('pos_pull')->where('st_document_number',$st_number)->update([
+						'status' => 'VOID',
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
+				}
+			}else{
+				$items = DB::table('pos_pull')->where('st_document_number',$st_number)->get();
+				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+				->where('location_id',$isGisSt->location_id_from)->where('description','IN TRANSIT')->first();
+				//UPDATE STATUS HEADER
 				DB::table('pos_pull')->where('st_document_number',$st_number)->update([
 					'status' => 'VOID',
 					'updated_at' => date('Y-m-d H:i:s')
 				]);
+				//ADD QTY IN GIS INVENTORY LINES TO FROM LOCATION
+				foreach($items as $key => $item){
+					DB::connection('gis')->table('inventory_capsules')
+					->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+					->where([
+						'items.digits_code' => $item->item_code,
+						'inventory_capsules.locations_id' => $item->location_id_from
+					])
+					->where('inventory_capsule_lines.sub_locations_id',$item->sub_location_id_from)
+					->update([
+						'qty' => DB::raw("qty + $item->quantity"),
+						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+					]);
+					//ADD GIS MOVEMENT HISTORY
+					//get item code
+					$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
+					$item_code = DB::connection('gis')->table('items')->where('digits_code',$item->item_code)->first();
+					$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+					->where('description','VOID')->first();
+					DB::connection('gis')->table('history_capsules')->insert([
+						'reference_number' => $st_number,
+						'item_code' => $item_code->digits_code2,
+						'capsule_action_types_id' => $capsuleAction->id,
+						'locations_id' => $item->location_id_from,
+						'from_sub_locations_id' => $item->sub_location_id_from,
+						'to_sub_locations_id' => $from_intransit_gis_sub_location->id,
+						'qty' => $item->quantity,
+						'created_at' => date('Y-m-d H:i:s'),
+						'created_by' => $gis_mw_name->id
+					]);
+					DB::connection('gis')->table('history_capsules')->insert([
+						'reference_number' => $st_number,
+						'item_code' => $item_code->digits_code2,
+						'capsule_action_types_id' => $capsuleAction->id,
+						'locations_id' => $item->location_id_from,
+						'from_sub_locations_id' => $from_intransit_gis_sub_location->id,
+						'to_sub_locations_id' => $item->sub_location_id_from,
+						'qty' => -1 * abs($item->quantity),
+						'created_at' => date('Y-m-d H:i:s'),
+						'created_by' => $gis_mw_name->id
+					]);
+				}
 				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
 			}
+			
 		}
 
 		public function getDetail($st_number)
@@ -1174,7 +1234,7 @@
 
 			$items = DB::table('pos_pull')
 				->where('st_document_number',$st_number)
-				->select('id','item_code','quantity')
+				->select('id','item_code','quantity','item_description')
 				->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
@@ -1194,7 +1254,7 @@
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
 					'upc_code' => $item_detail->upc_code,
-					'item_description' => $item_detail->item_description,
+					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
 					'price' => $item_detail->store_cost,
 					'st_quantity' => $value->quantity,
 					'st_serial_numbers' => $serial_data
@@ -1228,7 +1288,7 @@
 
 			$items = DB::table('pos_pull')
 				->where('st_document_number',$st_number)
-				->select('id','item_code','quantity')
+				->select('id','item_code','quantity','item_description')
 				->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
@@ -1248,7 +1308,7 @@
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
 					'upc_code' => $item_detail->upc_code,
-					'item_description' => $item_detail->item_description,
+					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
 					'price' => $item_detail->store_cost,
 					'st_quantity' => $value->quantity,
 					'st_serial_numbers' => $serial_data
