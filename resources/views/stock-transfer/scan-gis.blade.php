@@ -95,7 +95,7 @@ input[type=number]::-webkit-outer-spin-button {
                 <div id="loading-content"></div>
             </section>
             <div class="col-md-12">
-                <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE DIGITS CODE**</b></p>
+                <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE JAN CODE**</b></p>
             </div>
 
             <form action="{{ route('saveCreateGisST') }}" method="POST" id="st_create" autocomplete="off" role="form" enctype="multipart/form-data">
@@ -159,12 +159,17 @@ input[type=number]::-webkit-outer-spin-button {
                     <label class="control-label">Hand Carrier:</label>
                     <input class="form-control" type="text" name="hand_carrier" id="hand_carrier" placeholder="First name Last name"/>
                 </div>
-                
+            </div>
+            <div class="col-md-3 col-md-offset-9" id="transfer_date_div">
+                <div class="form-group">
+                    <label class="control-label">Transfer date:</label>
+                    <input type='input' name='transfer_date' id="transfer_date" onkeydown="return false" autocomplete="off" class='form-control' placeholder="yyyy-mm-dd" required/>
+                </div>
             </div>
 
             <div class="col-md-3">
                 <div class="form-group">
-                    <label class="control-label">Scan Digits Code</label>
+                    <label class="control-label">Scan Jan Code</label>
                     <input class="form-control" type="text" name="item_search" id="item_search"/>
                 </div>
                 
@@ -180,7 +185,7 @@ input[type=number]::-webkit-outer-spin-button {
             <br>
             
             <div class="col-md-12">
-                <h4 style="color: red;"><b>Note:</b> Maximum lines <b><span id="sku_count">0</span></b>/100 skus/serials. </h4>
+                <h4 style="color: red;"><b>Note:</b> Maximum lines <b><span id="sku_count">0</span></b>/100 skus. </h4>
             </div>
 
             <div class="col-md-12">
@@ -193,7 +198,7 @@ input[type=number]::-webkit-outer-spin-button {
                         <table class="table table-bordered" id="st_items">
                             <thead>
                                 <tr style="background: #0047ab; color: white">
-                                    <th width="15%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    <th width="15%" class="text-center">Jan Code</th>
                                     <th width="15%" class="text-center">{{ trans('message.table.item_description') }}</th>
                                     <th width="15%" class="text-center">Location</th>
                                     <th width="5%" class="text-center">{{ trans('message.table.st_quantity') }}</th>
@@ -217,7 +222,7 @@ input[type=number]::-webkit-outer-spin-button {
             </div>
             
             <div class="col-md-12">
-                <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE DIGITS CODE**</b></p>
+                <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE JAN CODE**</b></p>
             </div>
 
         </div>
@@ -301,7 +306,7 @@ input[type=number]::-webkit-outer-spin-button {
                 </div>
                 
                 <div class="modal-body">
-                    <h4 class="text-center">Limit of 100 skus/serials reach!</h4>
+                    <h4 class="text-center">Limit of 100 skus reach!</h4>
                 </div>
 
                 <div class="modal-footer">
@@ -341,7 +346,12 @@ input[type=number]::-webkit-outer-spin-button {
 <script src='<?php echo asset("vendor/crudbooster/assets/select2/dist/js/select2.full.min.js")?>'></script>
 <script src='https://cdn.jsdelivr.net/gh/admsev/jquery-play-sound@master/jquery.playSound.js'></script>
 <script type="text/javascript">
-
+ $("#transfer_date").datepicker({ 
+    startDate: "today",
+    format: "yyyy-mm-dd",
+    autoclose: true,
+    todayHighlight: true,
+});
 
 var stack = [];
 var serial_array = [];
@@ -360,6 +370,7 @@ $(document).ready(function() {
     });
     
     $('#hand_carriers').hide();
+    $('#transfer_date_div').hide();
     $('#item_search').prop("disabled", true);
     $('#transfer_to').select2();
     $('#transfer_from').select2();
@@ -439,14 +450,14 @@ $(document).ready(function() {
                                 '<td><input class="form-control text-center" type="text" name="digits_code[]" readonly value="' + data.items.digits_code + '"></td>' +
                                 '<td><input class="form-control text-center" type="text" name="item_description[]" readonly value="' + data.items.item_description + '"></td>' +
                                 '<td><input class="form-control text-center" type="text" name="location" readonly value="' + data.items.location + '"><input type="hidden" name="location_id_from" value="' + data.items.location_id_from + '"><input type="hidden" name="sub_location_id_from" value="' + data.items.sub_location_id_from + '"></td>' +
-                                '<td class="scan scanqty' + data.items.digits_code + '"><input class="form-control text-center scan_qty" type="number" min="0" max="9999" id="st_qty" value="0" name="st_quantity[]" item-qty="'+data.items.orig_qty+'">' + 
+                                '<td class="scan scanqty' + data.items.digits_code + '" bgcolor="yellow"><input class="form-control text-center scan_qty" type="number" min="0" max="9999" id="st_qty" value="0" name="st_quantity[]" item-qty="'+data.items.orig_qty+'">' + 
                                 '<td class="text-center"><button id="' + data.items.digits_code + '" class="btn btn-xs btn-danger delete_item"><i class="glyphicon glyphicon-trash"></i></button></td>' +
                                 '</tr>';
                                 
                             sku_count++;
                             $("#sku_count").text(sku_count);
                             $(new_row).insertAfter($('table tr.dynamicRows:last'));
-                            $("#totalQuantity").val(calculateTotalQty());
+                            $("#totalQuantity").val(Number(calculateTotalQty()));
                             validateInput();
                           
                         }else{
@@ -640,17 +651,21 @@ $(document).ready(function() {
         
         if(transpo == 2){ //hand carry
             $('#hand_carriers').show();
-            
+            $('#transfer_date_div').show();
             setTimeout(function(){ 
                 $('#hand_carrier').focus();
             },0);
             
             $('#hand_carrier').prop("required", true);
+            $('#transfer_date').prop("required", true);
         }
         else{
             $('#hand_carriers').hide();
             $('#hand_carrier').removeAttr("required");
             $('#hand_carrier').val('');
+            $('#transfer_date_div').hide();
+            $('#transfer_date').removeAttr("required");
+            $('#transfer_date').val('');
         }
         changeFocus();
     });
@@ -748,9 +763,14 @@ $(document).ready(function() {
     function calculateTotalQty() {
         var totalQty = 0;
         $('.scan_qty').each(function () {
-            totalQty += parseInt($(this).val());
+            if($(this).val() === ''){
+                var qty = 0;
+            }else{
+                var qty = parseInt($(this).val().replace(/,/g, ''));
+            }
+            totalQty += qty;
         });
-        return totalQty;
+        return totalQty.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
     }
 
 

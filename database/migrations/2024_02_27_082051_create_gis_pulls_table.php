@@ -30,6 +30,8 @@ class CreateGisPullsTable extends Migration
             $table->integer('approved_by')->nullable();
             $table->dateTime('approved_at')->nullable();
             $table->string('approver_comments')->nullable();
+            $table->integer('schedule_by')->nullable();
+            $table->dateTime('schedule_at')->nullable();
             $table->integer('received_by')->nullable();
             $table->dateTime('received_at')->nullable();
             $table->integer('rejected_by')->nullable();

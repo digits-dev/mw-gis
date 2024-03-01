@@ -145,6 +145,10 @@ Route::get('/admin/store_transfers_gis/create-gis-sts','AdminStoreTransferGisCon
 Route::post('/admin/search_scan_items_gis','AdminStoreTransferGisController@scanItemSearchGis')->name('scanItemSearchGis');
 Route::post('/admin/st_gis_creation','AdminStoreTransferGisController@saveCreateGisST')->name('saveCreateGisST');
 Route::get('/admin/store_transfers_gis/gis-details/{ref_number}','AdminStoreTransferGisController@getDetail')->name('st.gis-detail');
+Route::get('/admin/store_transfers_gis/void-st-gis/{id}','AdminStoreTransferGisController@getVoidStGis');
+Route::get('/admin/store_transfers/schedule-gis/{id}','AdminStoreTransferGisController@getScheduleGis')->name('st.schedule.gis');
+Route::post('/admin/schedule_transfer_gis','AdminStoreTransferGisController@saveScheduleGis')->name('saveScheduleTransferGis');
+Route::get('/admin/store_transfers_gis/print-gis/{id}','AdminStoreTransferGisController@getPrintGis')->name('st.print.gis');
 //Store GIS ST Approval
 Route::get('/admin/gis_pull_approval/getRequestApproval/{id}','AdminGisPullApprovalController@getRequestApproval')->name('st.gis.approval');
 //Store GIS ST For Receiving

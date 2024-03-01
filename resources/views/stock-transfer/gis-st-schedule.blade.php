@@ -40,11 +40,11 @@ table.table.table-bordered th {
 
     <div class='panel panel-default'>
         <div class='panel-heading'>  
-        <h3 class="box-title text-center"><b>Stock Transfer Gis approval form</b></h3>
+        <h3 class="box-title text-center"><b>Stock Transfer Gis schedule form</b></h3>
         </div>
-        <form method='POST' id="approvalForm" action='{{CRUDBooster::mainpath('edit-save/'.$header->gp_id)}}'>
+        <form method='POST' id="scheduleForm" action="{{ route('saveScheduleTransferGis') }}">
             <input type="hidden" value="{{csrf_token()}}" name="_token" id="token">
-            <input type="hidden" value="" name="approval_action" id="approval_action">
+            <input type="hidden" value="{{$header->gp_id}}" name="header_id" id="header_id">
             <div class='panel-body' id="st-details">
                 <div class="col-md-4">
                     <div class="table-responsive">
@@ -92,26 +92,6 @@ table.table.table-bordered th {
                     <div class="table-responsive">
                         <table class="table table-bordered" id="st-header-2">
                             <tbody>
-                                @if(!is_null($header->schedule_at) || !empty($header->schedule_at))
-                                    <tr>
-                                        <td style="width: 30%">
-                                            <b>Schedule Date:</b>
-                                        </td>
-                                        <td>
-                                            {{ date('M d, Y',strtotime($header->schedule_at)) }}   
-                                        </td>
-                                    </tr>
-                                @endif
-                                @if(!is_null($header->transfer_date) || !empty($header->transfer_date))
-                                    <tr>
-                                        <td style="width: 30%">
-                                            <b>Transfer Date:</b>
-                                        </td>
-                                        <td>
-                                            {{ date('M d, Y',strtotime($header->transfer_date)) }}  
-                                        </td>
-                                    </tr>
-                                @endif
                                 <tr>
                                     <td style="width: 30%">
                                         <b>Transport By:</b>
@@ -134,6 +114,16 @@ table.table.table-bordered th {
                                     </td>
                                     <td>
                                         {{ $header->location_to }} 
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>
+                                        <b>Schedule Date:</b>
+                                    </td>
+                                    <td>
+                                        <input type='input' name='schedule_date' id="schedule_date" onkeydown="return false" autocomplete="off" class='form-control' placeholder="yyyy-mm-dd" required/>
+                                        
                                     </td>
                                 </tr>
                             </tbody>
@@ -189,20 +179,11 @@ table.table.table-bordered th {
                     <h4><b>Note:</b></h4>
                     <p>{{ $header->memo }}</p>
                 </div>
-                <hr>
-                <div class="col-md-12">
-                    <h4><b>Remarks:</b></h4>
-                    <textarea placeholder="Remarks" rows="3" class="form-control finput" name="approver_comments">{{$Header->approver_comments}}</textarea>
-                </div>
-               
-
             </div>
 
             <div class='panel-footer'>
                 <a href="{{ CRUDBooster::mainpath() }}" class="btn btn-default">{{ trans('message.form.cancel') }}</a>
-            
-                <button class="btn btn-danger pull-right" type="button" id="btnReject" style="margin-left: 5px;"><i class="fa fa-thumbs-down" ></i> Reject</button>
-                <button class="btn btn-success pull-right" type="button" id="btnApprove"><i class="fa fa-thumbs-up" ></i> Approve</button>
+                <button class="btn btn-primary pull-right" type="button" id="btnSchedule"><i class="fa fa-check-circle" ></i> Save</button>
             </div>
         </form>
     </div>
@@ -218,43 +199,37 @@ table.table.table-bordered th {
         null;
     };
     setTimeout("preventBack()", 0);
-
-    $('#btnApprove').click(function(event) {
-        event.preventDefault();
-        swal({
-            title: "Are you sure?",
-            type: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#337ab7",
-            cancelButtonColor: "#F9354C",
-            confirmButtonText: "Yes, approve it!",
-            width: 450,
-            height: 200
-            }, function () {
-                $(this).attr('disabled','disabled');
-                $('#approval_action').val('1');
-                $("#approvalForm").submit();                   
-        });
+    $("#schedule_date").datepicker({ 
+        startDate: "today",
+        format: "yyyy-mm-dd",
+        autoclose: true,
+        todayHighlight: true,
     });
-
-    $('#btnReject').click(function(event) {
+    $('#btnSchedule').click(function(event) {
         event.preventDefault();
+        if($('#schedule_date').val() == ''){
+            swal({  
+                type: 'error',
+                title: 'Schedule date required!',
+                icon: 'error',
+                confirmButtonColor: "#3c8dbc"
+            });
+            event.preventDefault();
+            return false;
+        }
         swal({
             title: "Are you sure?",
             type: "warning",
-            text: "You won't be able to revert this!",
             showCancelButton: true,
             confirmButtonColor: "#337ab7",
             cancelButtonColor: "#F9354C",
-            confirmButtonText: "Yes, reject it!",
+            confirmButtonText: "Yes, save it!",
             width: 450,
             height: 200
             }, function () {
                 $(this).attr('disabled','disabled');
-                $('#approval_action').val('0');
-                $("#approvalForm").submit();                   
+                $("#scheduleForm").submit();                   
         });
-        
     });
     
 </script>

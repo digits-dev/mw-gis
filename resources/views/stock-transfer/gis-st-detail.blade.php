@@ -104,14 +104,26 @@ table.table.table-bordered th {
                 <div class="table-responsive">
                     <table class="table table-bordered" id="st-header-2">
                         <tbody>
-                            {{-- <tr>
-                                <td style="width: 30%">
-                                    <b>Transfer Date:</b>
-                                </td>
-                                <td>
-                                    @if(!empty($header->scheduled_at)) {{ $header->scheduled_at }} @else {{ $header->transfer_date }} @endif  
-                                </td>
-                            </tr> --}}
+                            @if(!is_null($header->schedule_at) || !empty($header->schedule_at))
+                                <tr>
+                                    <td style="width: 30%">
+                                        <b>Schedule Date:</b>
+                                    </td>
+                                    <td>
+                                        {{ date('M d, Y',strtotime($header->schedule_at)) }}   
+                                    </td>
+                                </tr>
+                            @endif
+                            @if(!is_null($header->transfer_date) || !empty($header->transfer_date))
+                                <tr>
+                                    <td style="width: 30%">
+                                        <b>Transfer Date:</b>
+                                    </td>
+                                    <td>
+                                        {{ date('M d, Y',strtotime($header->transfer_date)) }}  
+                                    </td>
+                                </tr>
+                            @endif
                             <tr>
                                 <td style="width: 30%">
                                     <b>Transport By:</b>

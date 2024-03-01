@@ -5,11 +5,13 @@
 	use DB;
 	use CRUDBooster;
 	use App\ApprovalMatrix;
+	use App\GisPull;
 
 	class AdminGisPullApprovalController extends \crocodicstudio\crudbooster\controllers\CBController {
 		private const Pending      = 1;
-		private const ForReceiving = 2;
+		private const ForSchedule  = 6;
 		private const Rejected     = 3;
+		private const forReceiving = 2;
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -33,13 +35,12 @@
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
-			$this->col[] = ["label"=>"Ref Number","name"=>"ref_number"];
-			$this->col[] = ["label"=>"Status Id","name"=>"status_id","join"=>"st_status,status_description"];
-			$this->col[] = ["label"=>"Total Qty","name"=>"quantity_total"];
+			$this->col[] = ["label"=>"Ref #","name"=>"ref_number"];
 			$this->col[] = ["label"=>"From Location","name"=>"stores_id","join"=>"stores,bea_so_store_name"];
 			$this->col[] = ["label"=>"To Location","name"=>"stores_id_destination","join"=>"stores,bea_so_store_name"];
+			$this->col[] = ["label"=>"Status","name"=>"status_id","join"=>"st_status,status_description"];
 			$this->col[] = ["label"=>"Transport Type","name"=>"transport_types_id","join"=>"transport_types,transport_type"];
-			
+			$this->col[] = ["label"=>"Created Date","name"=>"created_at"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
@@ -261,7 +262,7 @@
 	    |
 	    */    
 	    public function hook_row_index($column_index,&$column_value) {	        
-	    	if($column_index == 1){
+	    	if($column_index == 3){
 				if($column_value == "PENDING"){
 					$column_value = '<span class="label label-warning">PENDING</span>';
 				}else if($column_value == "FOR PICKLIST"){
@@ -326,11 +327,15 @@
 	    */
 	    public function hook_before_edit(&$postdata,$id) {        
 			$fields = Request::all();
-
 			$header = DB::table('gis_pulls')->where('id',$id)->first();
 			$items = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+
 			if($fields['approval_action']  == 1){
-				$postdata['status_id']          = self::ForReceiving;
+				if($header->transport_types_id == 1){
+					$postdata['status_id']      = self::ForSchedule;
+				}else{
+					$postdata['status_id']      = self::forReceiving;
+				}
 				$postdata['approver_comments'] 	= $$fields['approver_comments'];
 				$postdata['approved_by'] 		= CRUDBooster::myId();
 				$postdata['approved_at'] 		= date('Y-m-d H:i:s');
@@ -403,21 +408,7 @@
 			$this->cbLoader();
 			$data = array();
 			$data['page_title'] = 'Stock Transfer GIS Details';
-			$data['header'] = DB::table('gis_pulls')->where('gis_pulls.id',$id)
-								->leftjoin('reason','gis_pulls.reason_id','reason.id')
-								->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
-								->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
-								->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
-								->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
-								->select('gis_pulls.*',
-										 'gis_pulls.id AS gp_id',
-										 'reason.*',
-										 'approver.name AS approver',
-										 'receiver.name AS receiver',
-										 'rejector.name AS rejector',
-										 'transport_types.transport_type'
-										 )
-								->first();
+			$data['header'] = GisPull::stGisHeader($id);
 			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
 			$this->cbView("stock-transfer.gis-st-approval", $data);
 		}
@@ -430,21 +421,7 @@
 			$this->cbLoader();
 			$data = array();
 			$data['page_title'] = 'Stock Transfer GIS Details';
-			$data['header'] = DB::table('gis_pulls')->where('gis_pulls.id',$id)
-								->leftjoin('reason','gis_pulls.reason_id','reason.id')
-								->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
-								->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
-								->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
-								->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
-								->select('gis_pulls.*',
-										 'gis_pulls.id AS gp_id',
-										 'reason.*',
-										 'approver.name AS approver',
-										 'receiver.name AS receiver',
-										 'rejector.name AS rejector',
-										 'transport_types.transport_type'
-										 )
-								->first();
+			$data['header'] = GisPull::stGisHeader($id);
 			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
 			// dd($data['items'],$data['header']);
 			$this->cbView("stock-transfer.gis-st-detail", $data);

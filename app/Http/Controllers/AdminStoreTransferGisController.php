@@ -9,9 +9,13 @@
 	use App\ApprovalMatrix;
 	use App\GisPullLines;
 	use App\GisPull;
-
+	use Illuminate\Support\Facades\Log;
+	use Illuminate\Support\Facades\Redirect;
 	class AdminStoreTransferGisController extends \crocodicstudio\crudbooster\controllers\CBController {
 		private const Pending = 1;
+		private const Void    = 5;
+		private const ForSchedule    = 6;
+		private const ForReceiving   = 2;
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -35,12 +39,12 @@
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
-			$this->col[] = ["label"=>"Ref Number","name"=>"ref_number"];
-			$this->col[] = ["label"=>"Status Id","name"=>"status_id","join"=>"st_status,status_description"];
-			$this->col[] = ["label"=>"Total Qty","name"=>"quantity_total"];
+			$this->col[] = ["label"=>"Ref #","name"=>"ref_number"];
 			$this->col[] = ["label"=>"From Location","name"=>"stores_id","join"=>"stores,bea_so_store_name"];
 			$this->col[] = ["label"=>"To Location","name"=>"stores_id_destination","join"=>"stores,bea_so_store_name"];
+			$this->col[] = ["label"=>"Status","name"=>"status_id","join"=>"st_status,status_description"];
 			$this->col[] = ["label"=>"Transport Type","name"=>"transport_types_id","join"=>"transport_types,transport_type"];
+			$this->col[] = ["label"=>"Created Date","name"=>"created_at"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
@@ -76,7 +80,19 @@
 	        */
 	        $this->addaction = array();
 			//$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('gis-details').'/[ref_number]','icon'=>'fa fa-eye','color'=>'primary'];
-
+			$this->addaction[] = [
+				'title'=>'Void ST',
+				'url'=>CRUDBooster::mainpath('void-st-gis/[id]'),
+				'icon'=>'fa fa-times',
+				'color'=>'danger',
+				'showIf'=>"[status_id]==".self::Pending."",
+				'confirmation'=>'yes',
+				'confirmation_title'=>'Confirm Voiding',
+				'confirmation_text'=>'Are you sure to VOID this transaction?'
+			];
+			if(CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeId() ,[4,25])){
+				$this->addaction[] = ['title'=>'Schedule','url'=>CRUDBooster::mainpath('schedule-gis').'/[id]','icon'=>'fa fa-calendar','color'=>'warning','showIf'=>"[status_id]==".self::ForSchedule.""];
+			}
 	        /* 
 	        | ---------------------------------------------------------------------- 
 	        | Add More Button Selected
@@ -238,7 +254,10 @@
 	    public function hook_query_index(&$query) {
 			if(CRUDBooster::isSuperadmin()){
 				$query->whereNull('gis_pulls.deleted_at')->orderBy('gis_pulls.status_id', 'DESC')->orderBy('gis_pulls.id', 'DESC');
-			}else{
+			}elseif (in_array(CRUDBooster::myPrivilegeId() ,[4,25])) {
+				$query->where('gis_pulls.status_id',self::ForSchedule)->where('transport_types_id',1);
+			}
+			else{
 				$query->where('gis_pulls.stores_id', CRUDBooster::myStore());
 			}
 	    }
@@ -250,7 +269,7 @@
 	    |
 	    */    
 	    public function hook_row_index($column_index,&$column_value) {	        
-	    	if($column_index == 1){
+	    	if($column_index == 3){
 				if($column_value == "PENDING"){
 					$column_value = '<span class="label label-warning">PENDING</span>';
 				}else if($column_value == "FOR PICKLIST"){
@@ -559,23 +578,79 @@
 			$this->cbLoader();
 			$data = array();
 			$data['page_title'] = 'Stock Transfer GIS Details';
-			$data['header'] = DB::table('gis_pulls')->where('gis_pulls.id',$id)
-								->leftjoin('reason','gis_pulls.reason_id','reason.id')
-								->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
-								->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
-								->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
-								->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
-								->select('gis_pulls.*',
-										 'gis_pulls.id AS gp_id',
-										 'reason.*',
-										 'approver.name AS approver',
-										 'receiver.name AS receiver',
-										 'rejector.name AS rejector',
-										 'transport_types.transport_type'
-										 )
-								->first();
+			$data['header'] = GisPull::stGisHeader($id);
 			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
 			// dd($data['header']);
 			$this->cbView("stock-transfer.gis-st-detail", $data);
+		}
+
+		public function getVoidStGis($id){
+			$header = DB::table('gis_pulls')->where('id',$id)->first();
+			$items = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+		
+			//UPDATE STATUS HEADER
+			DB::table('gis_pulls')->where('id',$id)->update([
+				'status_id' => self::Void
+			]);
+
+			//ADD QTY IN GIS INVENTORY LINES TO FROM LOCATION
+			foreach($items as $key => $item){
+				DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $item->item_code,
+					'inventory_capsules.locations_id' => $header->location_id_from
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$header->sub_location_id_from)
+				->update([
+					'qty' => DB::raw("qty + $item->quantity"),
+					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+				]);
+			}
+		}
+
+		public function getScheduleGis($id){
+			if(!CRUDBooster::isRead() && $this->global_privilege == false || $this->button_detail == false) {    
+				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
+
+			$this->cbLoader();
+			$data = array();
+			$data['page_title'] = 'Stock Transfer GIS Details';
+			$data['header'] = GisPull::stGisHeader($id);
+			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+			// dd($data['header']);
+			$this->cbView("stock-transfer.gis-st-schedule", $data);
+		}
+
+		public function saveScheduleGis(Request $request){
+			$record = DB::table('gis_pulls')
+				->where('id',$request->header_id)
+				->update([
+					'schedule_at' => $request->schedule_date,
+					'schedule_by' => CRUDBooster::myId(),
+					'status_id' => self::ForReceiving
+				]);
+
+			if($record)
+                CRUDBooster::redirect(CRUDBooster::mainpath('print-gis').'/'.$request->header_id,'','')->send();
+            else{
+                CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! No transaction has been scheduled for transfer.','danger')->send();
+            }
+		}
+
+		public function getPrintGis($id){
+			if(!CRUDBooster::isRead() && $this->global_privilege == false || $this->button_detail == false) {    
+				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
+
+			$this->cbLoader();
+			$data = array();
+			$data['page_title'] = 'Stock Transfer GIS Details';
+			$data['header'] = GisPull::stGisHeader($id);
+			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
+			// dd($data['header']);
+			$this->cbView("stock-transfer.gis-st-print", $data);
 		}
 	}

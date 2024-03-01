@@ -35,4 +35,24 @@ class GisPull extends Model
         'deleted_at'
       
     ];
+
+    public function scopeStGisHeader($query, $id){
+       return $query->where('gis_pulls.id',$id)
+                    ->leftjoin('reason','gis_pulls.reason_id','reason.id')
+                    ->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
+                    ->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
+                    ->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
+                    ->leftjoin('cms_users AS scheduler','gis_pulls.schedule_by','scheduler.id')
+                    ->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
+                    ->select('gis_pulls.*',
+                                'gis_pulls.id AS gp_id',
+                                'reason.*',
+                                'approver.name AS approver',
+                                'receiver.name AS receiver',
+                                'rejector.name AS rejector',
+                                'scheduler.name AS scheduler',
+                                'transport_types.transport_type'
+                                )
+                    ->first();
+    }
 }

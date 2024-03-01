@@ -4,9 +4,10 @@
 	use Request;
 	use DB;
 	use CRUDBooster;
+	use App\GisPull;
 
 	class AdminStockTransferGisHistoryController extends \crocodicstudio\crudbooster\controllers\CBController {
-
+		private const ForReceiving   = 2;
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -30,12 +31,12 @@
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
-			$this->col[] = ["label"=>"Ref Number","name"=>"ref_number"];
-			$this->col[] = ["label"=>"Status Id","name"=>"status_id","join"=>"st_status,status_description"];
-			$this->col[] = ["label"=>"Total Qty","name"=>"quantity_total"];
+			$this->col[] = ["label"=>"Ref #","name"=>"ref_number"];
 			$this->col[] = ["label"=>"From Location","name"=>"stores_id","join"=>"stores,bea_so_store_name"];
 			$this->col[] = ["label"=>"To Location","name"=>"stores_id_destination","join"=>"stores,bea_so_store_name"];
+			$this->col[] = ["label"=>"Status","name"=>"status_id","join"=>"st_status,status_description"];
 			$this->col[] = ["label"=>"Transport Type","name"=>"transport_types_id","join"=>"transport_types,transport_type"];
+			$this->col[] = ["label"=>"Created Date","name"=>"created_at"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
@@ -70,7 +71,9 @@
 	        | 
 	        */
 	        $this->addaction = array();
-
+			if(CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeId() ,[4,25])){
+				$this->addaction[] = ['title'=>'Print','url'=>CRUDBooster::adminpath('store_transfer_gis/print-gis').'/[id]','icon'=>'fa fa-print','color'=>'info','showIf'=>"[status_id]==".self::ForReceiving.""];
+			}
 
 	        /* 
 	        | ---------------------------------------------------------------------- 
@@ -231,6 +234,8 @@
 				$query->whereNull('gis_pulls.deleted_at')->orderBy('gis_pulls.status_id', 'DESC')->orderBy('gis_pulls.id', 'DESC');
 			}elseif(in_array(CRUDBooster::myPrivilegeId(), [5])){
 				$query->where('gis_pulls.approved_by', CRUDBooster::myId());
+			}elseif (in_array(CRUDBooster::myPrivilegeId() ,[4,25])) {
+				$query->where('gis_pulls.schedule_by', CRUDBooster::myId())->where('transport_types_id',1);
 			}else{
 				$query->where('gis_pulls.received_by', CRUDBooster::myId());
 			}
@@ -243,7 +248,7 @@
 	    |
 	    */    
 	    public function hook_row_index($column_index,&$column_value) {	        
-	    	if($column_index == 1){
+	    	if($column_index == 3){
 				if($column_value == "PENDING"){
 					$column_value = '<span class="label label-warning">PENDING</span>';
 				}else if($column_value == "FOR PICKLIST"){
@@ -355,21 +360,7 @@
 			$this->cbLoader();
 			$data = array();
 			$data['page_title'] = 'Stock Transfer GIS Details';
-			$data['header'] = DB::table('gis_pulls')->where('gis_pulls.id',$id)
-								->leftjoin('reason','gis_pulls.reason_id','reason.id')
-								->leftjoin('cms_users AS approver','gis_pulls.approved_by','approver.id')
-								->leftjoin('cms_users AS receiver','gis_pulls.received_by','receiver.id')
-								->leftjoin('cms_users AS rejector','gis_pulls.rejected_by','rejector.id')
-								->leftJoin('transport_types', 'gis_pulls.transport_types_id', '=', 'transport_types.id')
-								->select('gis_pulls.*',
-										 'gis_pulls.id AS gp_id',
-										 'reason.*',
-										 'approver.name AS approver',
-										 'receiver.name AS receiver',
-										 'rejector.name AS rejector',
-										 'transport_types.transport_type'
-										 )
-								->first();
+			$data['header'] = GisPull::stGisHeader($id);
 			$data['items'] = DB::table('gis_pull_lines')->where('gis_pull_id',$id)->get();
 			// dd($data['header']);
 			$this->cbView("stock-transfer.gis-st-detail", $data);
