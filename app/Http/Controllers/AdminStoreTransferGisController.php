@@ -608,6 +608,8 @@
 					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 				]);
 			}
+
+			CRUDBooster::redirect(CRUDBooster::mainpath(),''.$header->ref_number.' has been voided successfully!','success')->send();
 		}
 
 		public function getScheduleGis($id){
