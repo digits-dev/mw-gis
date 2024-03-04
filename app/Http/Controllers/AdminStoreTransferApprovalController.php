@@ -445,7 +445,7 @@
 					CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$request->st_number.' has been approved!','success')->send();
 				}else{
 					//void st
-					if(substr($request->st_number,3) != "REF"){
+					if(substr($request->st_number,0,3) != "REF"){
 						$voidST = app(POSPushController::class)->voidStockTransfer($request->st_number);
 						\Log::info('void st: '.json_encode($voidST));
 	
