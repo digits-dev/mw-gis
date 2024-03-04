@@ -502,7 +502,22 @@
 				if(!$isToLocationExist){
 					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Jan Code not exist in location to transfer!','danger')->send();
 				}
+
+				$isQtyExceed = DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $val,
+					'inventory_capsules.locations_id' => $request->location_id_from
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$request->sub_location_id_from)
+				->where('inventory_capsule_lines.qty','<',str_replace(',', '',$request->st_quantity[$key]))
+				->exists();
+				if($isQtyExceed){
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Quantity must be equal or less than in GIS Inventory!','danger')->send();
+				}
 			}
+	
 			// //CREATE HEADER
 			$count_header = DB::table('pos_pull')->count();
 			$header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			

@@ -351,14 +351,16 @@ $(document).ready(function() {
                                 checkQty();
                             },0);
                         }else{
-                            $("#qty_" + digits_code).val(function (i, oldval) {
-                                return ++oldval;
-                            });
+        
                             $('.scanqty' + digits_code).css('background-color', 'yellow');
                             $("#qty_" + digits_code).attr('readonly', false); 
                             setTimeout(function(){ 
                                 checkQty();
                             },0);
+                            $('.scanqty' + digits_code).on('input', function(e) {
+                                $("#totalQuantity").val(calculateTotalQty());
+                                checkQty();
+                            });
                         }
                         
 
@@ -536,10 +538,18 @@ function checkIfRMA() {
 
 function calculateTotalQty() {
   var totalQty = 0;
-  $('.rcv_qty').each(function () {
-    totalQty += parseInt($(this).val());
-  });
-  return totalQty;
+//   $('.rcv_qty').each(function () {
+//     totalQty += parseInt($(this).val());
+//   });
+    $('.rcv_qty').each(function () {
+        if($(this).val() === ''){
+            var qty = 0;
+        }else{
+            var qty = parseInt($(this).val().replace(/,/g, ''));
+        }
+        totalQty += qty;
+    });
+  return totalQty.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
 }
 
 function changeFocus(){
