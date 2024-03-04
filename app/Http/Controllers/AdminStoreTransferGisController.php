@@ -623,6 +623,7 @@
 			}
 
 			if($record){
+				CRUDBooster::insertLog(trans("crudbooster.sts_created", ['ref_number' =>$st_ref_no]));
 				CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'), trans("Stock transfer has been created!"), 'info');
             
 			}else{
