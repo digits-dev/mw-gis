@@ -326,7 +326,7 @@ $(document).ready(function() {
                         digits_code = data.items.digits_code;   
                         serial = data.items.serialized;                       
                         $.playSound(ASSET_URL+'sounds/success.ogg');
-                        if($('#isGis').val() === 'null' || $('#isGis').val() === null){
+                        if($('#isGis').val() == 'null' || $('#isGis').val() == null || $('#isGis').val() == ''){
                             if(serial == 1){
                                 var sn = (($('#qty_'+digits_code).val() == '') ? 0 : $('#qty_'+digits_code).val());
                                 sn_field = sn;
