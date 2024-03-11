@@ -84,7 +84,7 @@ class AdminTripTicketsController extends \crocodicstudio\crudbooster\controllers
 			'title' => 'Details', 'url' => CRUDBooster::mainpath().'/details/[trip_number]?return_url='.urlencode(\Request::fullUrl()),
 			'icon' => 'fa fa-eye', 'color' => 'primary'];
 		}
-		if (in_array(CRUDBooster::myPrivilegeName(),["Requestor"])) {
+		if (in_array(CRUDBooster::myPrivilegeName(),["Requestor","Gashapon Requestor"])) {
 		    $this->addaction[] = [
 			'title' => 'Details', 'url' => CRUDBooster::mainpath().'/store-details/[trip_number]?return_url='.urlencode(\Request::fullUrl()),
 			'icon' => 'fa fa-eye', 'color' => 'primary'];
