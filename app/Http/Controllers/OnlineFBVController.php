@@ -154,6 +154,44 @@ class OnlineFBVController extends \crocodicstudio\crudbooster\controllers\CBCont
         exit;
     }
 
+    public function scanGisMwItemSearch(Request $request){
+        $data = array();
+        $data['status_no'] = 0;
+        $data['message'] ='No item found!';
+        $mw_location = DB::table('stores')->where('id',(int)(implode("",CRUDBooster::myStore())))->first();
+        //get location
+        $location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
+        ->where('location_name',$mw_location->bea_so_store_name)->first();
+
+        //get sublocation
+        $sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+        ->where('location_id',$location->id)->where('description','DEFECTIVE')->first();
+
+        $inventory_gis = DB::connection('gis')->table('inventory_capsules')
+        ->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+        ->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+        ->where([
+            'items.digits_code' => $request->item_code,
+            'inventory_capsules.locations_id' => $location->id
+        ])
+        ->where('inventory_capsule_lines.sub_locations_id',$sublocation->id)
+        ->first();
+        if($inventory_gis && $inventory_gis->qty >= 0) {
+            $data['status_no'] = 1;
+            $data['message'] ='Item found!';
+            $return_data['digits_code'] = $inventory_gis->digits_code;
+            $return_data['item_description'] = $inventory_gis->item_description;
+            $return_data['location'] = $location->location_name;
+            $return_data['location_id_from'] = $location->id;
+            $return_data['sub_location_id_from'] = $sublocation->id;
+            $return_data['orig_qty'] = $inventory_gis->qty;
+            $data['items'] = $return_data;
+        }
+        echo json_encode($data);
+        exit;
+       
+    }
+
     public function cancelReserveQty(Request $request)
     {
         $data = array();
@@ -504,4 +542,5 @@ class OnlineFBVController extends \crocodicstudio\crudbooster\controllers\CBCont
         return Pullout::where('id',$pullout_id)
             ->select('serial')->first();
     }
+
 }

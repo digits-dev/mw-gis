@@ -179,7 +179,9 @@ tfoot { display:table-footer-group }
                                     {{-- <th width="15%" class="text-center">{{ trans('message.table.upc_code') }}</th> --}}
                                     <th width="50%" class="text-center">{{ trans('message.table.item_description') }}</th>
                                     <th width="10%" class="text-center">{{ trans('message.table.st_quantity') }}</th>
-                                    <th width="25%" class="text-center">{{ trans('message.table.st_serial_numbers') }}</th>
+                                    @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                        <th width="25%" class="text-center">{{ trans('message.table.st_serial_numbers') }}</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
@@ -187,29 +189,36 @@ tfoot { display:table-footer-group }
                                     <tr>
                                         <td class="text-center">{{$item['digits_code']}} <input type="hidden" name="digits_code[]" value="{{ $item['digits_code'] }}"></td>
                                         {{-- <td class="text-center">{{$item['upc_code']}} </td> --}}
-                                        <td>{{$item['item_description']}}<input type="hidden" name="price[]" value="{{ $item['price'] }}"/>
+                                        <td class="text-center">{{$item['item_description']}}<input type="hidden" name="price[]" value="{{ $item['price'] }}"/>
                                         </td>
                                         <td class="text-center">{{$item['st_quantity']}}<input type="hidden" name="st_quantity[]" id="stqty_{{ $item['digits_code'] }}" value="{{ $item['st_quantity'] }}"/>
                                         </td>
-                                        <td>
-                                            @foreach ($item['st_serial_numbers'] as $serial)
-                                                {{$serial}}<br>
-                                            @endforeach
-                                        </td>
-                                        
+                                        @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                            <td>
+                                                @foreach ($item['st_serial_numbers'] as $serial)
+                                                    {{$serial}}<br>
+                                                @endforeach
+                                            </td>
+                                        @endif
                                     </tr> 
                                        
                                 @endforeach
-                                
-                                <tr class="tableInfo">
-
-                                    <td colspan="2" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
-                                    <td align="center" colspan="1">
-                                        {{$stQuantity}}
-                                    </td>
-                                    <td colspan="1"></td>
-                                </tr>
-                                
+                                @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                    <tr class="tableInfo">
+                                        <td colspan="2" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td align="center" colspan="1">
+                                            {{$stQuantity}}
+                                        </td>
+                                        <td colspan="1"></td>
+                                    </tr>
+                                @else
+                                    <tr class="tableInfo">
+                                        <td colspan="2" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td align="center" colspan="1">
+                                            {{$stQuantity}}
+                                        </td>
+                                    </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>

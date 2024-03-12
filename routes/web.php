@@ -221,6 +221,7 @@ Route::get('/admin/store_pullout/rma-online/create','AdminPulloutController@getR
 Route::get('/admin/store_pullout/stw-online/create','AdminPulloutController@getSTWOnline')->name('pullout.stw-online');
 // Route::post('/admin/stw_online_creation','AdminPulloutController@saveCreateSTWOnline')->name('saveCreateSTWOnline');
 // Route::post('/admin/rma_online_creation','AdminPulloutController@saveCreateRMAOnline')->name('saveCreateRMAOnline');
+Route::get('/admin/store_pullout/rma-gis/create','AdminPulloutController@getRMAGis')->name('pullout.rma-online');
 
 //Pullout Approval
 Route::get('/admin/pullout_approval/review/{st_number}','AdminPulloutApprovalController@getApproval')->name('pullout-approval.review');
@@ -242,12 +243,16 @@ Route::post('/admin/resetFBVReserveQty','OnlineFBVController@resetReserveQty')->
 
 Route::post('/admin/pullout_scan_fbd_items','OnlineFBDController@scanFBDItemSearch')->name('scanFBDPulloutItem');
 Route::post('/admin/pullout_scan_fbv_items','OnlineFBVController@scanFBVItemSearch')->name('scanFBVPulloutItem');
+// MW GIS PULLOUT
+Route::post('/admin/pullout_scan_gis_mw_items','OnlineFBVController@scanGisMwItemSearch')->name('scanGisMwPulloutItem');
 
 //saving
 Route::post('/admin/stw_fbd_creation','OnlineFBDController@saveCreateSTWOnline')->name('saveCreateSTWFBD');
 Route::post('/admin/rma_fbd_creation','OnlineFBDController@saveCreateRMAOnline')->name('saveCreateRMAFBD');
 Route::post('/admin/stw_fbv_creation','OnlineFBVController@saveCreateSTWOnline')->name('saveCreateSTWFBV');
 Route::post('/admin/rma_fbv_creation','OnlineFBVController@saveCreateRMAOnline')->name('saveCreateRMAFBV');
+//SAVING MW GIS PULLOUT
+Route::post('/admin/rma_gis_mw_creation','AdminPulloutController@saveCreateRMAGisRma')->name('saveCreateRMAGisMw');
 
 Route::get('/admin/sts_history/print-picklist/{id}','AdminStoreTransferHistoryController@printPicklist')->name('printSTSPicklist');
 Route::get('/admin/pullout_history/print-picklist/{id}','AdminPulloutHistoryController@printPicklist')->name('printSTWPicklist');
