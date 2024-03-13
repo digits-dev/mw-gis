@@ -1737,7 +1737,7 @@
 	
 				//get sublocation
 				$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-				->where('location_id',$location->id)->where('description','DEFECTIVE')->first();
+				->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
 				//get sub location in transit
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 				->where('location_id',$location->id)->where('description','IN TRANSIT')->first();
@@ -1851,7 +1851,6 @@
 			}
 
 			$data['items'] = $item_data;
-			
 			$this->cbView("pullout.detail", $data);
 		}
 
@@ -2009,6 +2008,33 @@
 			}
 		}
 
+		public function updateMwGisSORNumber()
+		{
+			$pullouts = DB::table('pullout')
+    			->where('status','FOR PROCESSING')//'FOR SCHEDULE','FOR RECEIVING',
+    			->whereNotNull('request_type')
+    			->whereNull('sor_number')->get();
+			$record = false;
+			
+			foreach ($pullouts as $key => $value) {
+				$sor_number = app(EBSPullController::class)->getOrderNumber($value->st_document_number);
+				if(!empty($sor_number)){
+					DB::table('pullout')->where('st_document_number', $value->st_document_number)->update([
+						'sor_number' => $sor_number->order_number,
+						'status' => ($value->transport_types_id == 1) ? 'FOR SCHEDULE' : 'FOR RECEIVING'
+					]);
+					$record = true;
+				}
+			}
+
+			if($record){
+				\Log::info('Update SOR: Pullout SOR number has been created!');
+			}
+			else{
+				\Log::info('Update SOR: No pullout created in BEACH!');
+			}
+		}
+
 		//RMA GIS MW
 		public function getRMAGis(){
 			$this->cbLoader();
@@ -2094,7 +2120,7 @@
 
 			//get sublocation
 			$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-			->where('location_id',$location->id)->where('description','DEFECTIVE')->first();
+			->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
 	
 			foreach ($request->digits_code as $key => $val) {
 				$isQtyExceed = DB::connection('gis')->table('inventory_capsules')
@@ -2133,21 +2159,24 @@
 				$stDetails = [
 					'item_code' => $value_item,
 					'item_description' => $request->item_description[$key_item],
-					'quantity' => $st_qty,
+					'quantity' => $request->st_quantity[$key_item],
 					'wh_from' => $request->transfer_from,
 					'wh_to' => $request->transfer_to,
-					'stores_id' => $request->stores_id,
+					'stores_id' => (int)(implode("",CRUDBooster::myStore())),
 					'channel_id' => CRUDBooster::myChannel(),
 					'memo' => $request->memo,
 					'pullout_date' => $request->pullout_date,
 					'reason_id' => $request->reason,
+					'problems' => implode(",",$request->$item_problems),
+					'problem_detail' => $request->problem_detail[$key_item],
 					'transport_types_id' => $request->transport_type,
 					'hand_carrier' => $request->hand_carrier,
-					'transaction_type' => 'STW',
+					'transaction_type' => 'RMA',
 					'st_document_number' => $st_number,
-					'sor_number' => NULL,
+					'sor_number' => NULL, 
 					'st_status_id' => 2,
-					'status' => 'PENDING',
+					'has_serial' => 1,
+					'status' => 'PENDING', 
 					'step' => 2,
 					'created_date' => date('Y-m-d'),
 					'created_at' => date('Y-m-d H:i:s'),
@@ -2189,7 +2218,9 @@
 				$record = true;
 				
 			}
-			
+
+			DB::table('code_counter')->where('id', 1)->increment('pullout_refcode');
+
 			if($record && !empty($st_number)){
 			    CRUDBooster::insertLog(trans("crudbooster.str_created", ['ref_number' =>$st_number]));
                 CRUDBooster::redirect(CRUDBooster::mainpath('print').'/'.$st_number,'','')->send();

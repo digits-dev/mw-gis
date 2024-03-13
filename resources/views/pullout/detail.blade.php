@@ -225,8 +225,10 @@ table.table.table-bordered th {
                             <thead>
                                 <tr style="background: #0047ab; color: white">
                                     <th width="10%" class="text-center">{{ trans('message.table.digits_code') }}</th>
-                                    <th width="15%" class="text-center">{{ trans('message.table.upc_code') }}</th>
-                                    <th width="10%" class="text-center">{{ trans('message.table.brand') }}</th>
+                                    @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                        <th width="15%" class="text-center">{{ trans('message.table.upc_code') }}</th>
+                                        <th width="10%" class="text-center">{{ trans('message.table.brand') }}</th>
+                                    @endif
                                     <th width="25%" class="text-center">{{ trans('message.table.item_description') }}</th>
                                     <th width="15%" class="text-center">{{ trans('message.table.problems') }}</th>
                                     <th width="5%" class="text-center">{{ trans('message.table.st_quantity') }}</th>

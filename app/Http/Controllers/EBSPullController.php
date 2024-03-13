@@ -2358,6 +2358,45 @@ class EBSPullController extends Controller
         }
     }
 
+    //GIS MW STR Receiving
+    public function getReceivedSORGisMwTransactions()
+    {
+        $pullouts = DB::table('pullout')->where('status','FOR RECEIVING')
+            ->where('transaction_type','RMA')
+            ->whereNotNull('request_type')
+    	    ->distinct('st_document_number')->get();
+    
+        foreach ($pullouts as $pullout) {
+            
+            if(is_numeric($pullout->sor_number)){
+                
+                $sor = DB::connection('oracle')
+                    ->table('OE_ORDER_HEADERS_ALL')
+                    ->join('OE_ORDER_LINES_ALL','OE_ORDER_HEADERS_ALL.HEADER_ID','=','OE_ORDER_LINES_ALL.HEADER_ID')
+                    ->where('OE_ORDER_HEADERS_ALL.ORDER_NUMBER', $pullout->sor_number)
+                    ->select(
+                        'OE_ORDER_HEADERS_ALL.ORDER_NUMBER',
+                        DB::raw("SUM (OE_ORDER_LINES_ALL.ORDERED_QUANTITY) as SUM_QTY_ORDERED"),
+                        DB::raw("SUM (OE_ORDER_LINES_ALL.SHIPPED_QUANTITY) as SUM_QTY_SHIPPED")
+                    )->groupBy('OE_ORDER_HEADERS_ALL.ORDER_NUMBER')->first();
+    
+                if(!empty($sor) && $sor->sum_qty_shipped > 0 && $sor->sum_qty_shipped == $sor->sum_qty_ordered){
+                    DB::table('pullout')->where('st_document_number',$pullout->st_document_number)->update([
+                        'received_st_date' => date('Y-m-d'),
+                        'status' => 'RECEIVED'
+                    ]);
+                }
+                if(!empty($sor) && $sor->sum_qty_shipped > 0 && $sor->sum_qty_shipped < $sor->sum_qty_ordered){
+                    DB::table('pullout')->where('st_document_number',$pullout->st_document_number)->update([
+                        'received_st_date' => date('Y-m-d'),
+                        'status' => 'PARTIALLY RECEIVED'
+                    ]);
+                }
+            
+            }
+        }
+    }
+
     public function getReceivedSORFBDTransactions()
     {
         $pullouts = DB::table('pullout')->where('status','FOR RECEIVING')

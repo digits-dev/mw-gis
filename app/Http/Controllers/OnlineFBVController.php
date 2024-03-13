@@ -165,7 +165,7 @@ class OnlineFBVController extends \crocodicstudio\crudbooster\controllers\CBCont
 
         //get sublocation
         $sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-        ->where('location_id',$location->id)->where('description','DEFECTIVE')->first();
+        ->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
 
         $inventory_gis = DB::connection('gis')->table('inventory_capsules')
         ->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
@@ -187,6 +187,7 @@ class OnlineFBVController extends \crocodicstudio\crudbooster\controllers\CBCont
             $return_data['orig_qty'] = $inventory_gis->qty;
             $data['items'] = $return_data;
         }
+    
         echo json_encode($data);
         exit;
        
