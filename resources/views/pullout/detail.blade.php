@@ -209,7 +209,7 @@ table.table.table-bordered th {
                                     </tr>
                                 @else
                                     <tr class="tableInfo">
-                                        <td colspan="2" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td colspan="3" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
                                         <td align="center">{{$stQuantity}} </td>
                                         {{-- <td colspan="1"></td> --}}
                                     </tr>
@@ -232,38 +232,48 @@ table.table.table-bordered th {
                                     <th width="25%" class="text-center">{{ trans('message.table.item_description') }}</th>
                                     <th width="15%" class="text-center">{{ trans('message.table.problems') }}</th>
                                     <th width="5%" class="text-center">{{ trans('message.table.st_quantity') }}</th>
-                                    <th width="20%" class="text-center">{{ trans('message.table.st_serial_numbers') }}</th>
+                                    @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                        <th width="20%" class="text-center">{{ trans('message.table.st_serial_numbers') }}</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($items as $item)
                                     <tr>
                                         <td class="text-center">{{$item['digits_code']}} <input type="hidden" name="digits_code[]" value="{{ $item['digits_code'] }}"></td>
-                                        <td class="text-center">{{$item['upc_code']}} </td>
-                                        <td class="text-center">{{$item['brand']}} </td>
+                                        @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                            <td class="text-center">{{$item['upc_code']}} </td>
+                                            <td class="text-center">{{$item['brand']}} </td>
+                                        @endif
                                         <td>{{$item['item_description']}}<input type="hidden" name="price[]" value="{{ $item['price'] }}"/>
                                         </td>
                                         <td class="text-center">{{$item['problems']}} </td>
                                         <td class="text-center">{{$item['st_quantity']}}<input type="hidden" name="st_quantity[]" id="stqty_{{ $item['digits_code'] }}" value="{{ $item['st_quantity'] }}"/>
                                         </td>
-                                        <td>
-                                            @foreach ($item['st_serial_numbers'] as $serial)
-                                                {{$serial}}<br>
-                                            @endforeach
-                                        </td>
-                                        
+                                        @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                            <td>
+                                                @foreach ($item['st_serial_numbers'] as $serial)
+                                                    {{$serial}}<br>
+                                                @endforeach
+                                            </td>
+                                        @endif
                                     </tr>    
                                 @endforeach
-                                
-                                <tr class="tableInfo">
-
-                                    <td colspan="5" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
-                                    <td align="left" colspan="1">
-                                        <input type='text' name="total_quantity" class="form-control text-center" id="totalQuantity" value="{{$stQuantity}}" readonly>
-                                    </td>
-                                    <td colspan="1"></td>
-                                </tr>
-
+                                @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                    <tr class="tableInfo">
+                                        <td colspan="5" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td align="left" colspan="1">
+                                            <input type='text' name="total_quantity" class="form-control text-center" id="totalQuantity" value="{{$stQuantity}}" readonly>
+                                        </td>
+                                        <td colspan="1"></td>
+                                    </tr>
+                                @else
+                                    <tr class="tableInfo">
+                                        <td colspan="3" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td align="center">{{$stQuantity}} </td>
+                                        {{-- <td colspan="1"></td> --}}
+                                    </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>

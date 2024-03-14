@@ -495,10 +495,8 @@ $(document).ready(function() {
                             var checkNumber = true;
                         }
 
-                        $.playSound(ASSET_URL+'sounds/success.ogg');
-
                         if (!in_array(data.items.digits_code, stack) && checkNumber) {
-
+                            $.playSound(ASSET_URL+'sounds/success.ogg');
                             stack.push(data.items.digits_code);
                         
                             var new_row = '<tr class="nr" id="rowid' + data.items.digits_code + '">' +

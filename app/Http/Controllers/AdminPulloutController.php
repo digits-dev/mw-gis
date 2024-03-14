@@ -2153,6 +2153,7 @@
 			//save ST
 			foreach ($request->digits_code as $key_item => $value_item) {
 				$serial = $value_item.'_serial_number';
+				$item_problems = $value_item.'problems';
 				$item_serials = array();
 				$st_qty = str_replace(',', '',$request->st_quantity[$key_item]); 
 
