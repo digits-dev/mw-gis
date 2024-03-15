@@ -490,31 +490,6 @@
 				CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Location in GIS not match!','danger')->send();
 			}
 			foreach ($request->digits_code as $key => $val) {
-				$qty = str_replace(',', '',$request->st_quantity[$key]); 
-				$items = DB::connection('gis')->table('items')->where('digits_code',$val)->first();
-				$isToLocationExist = DB::connection('gis')->table('inventory_capsules')
-				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
-				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
-				->where([
-					'items.digits_code' => $val,
-					'inventory_capsules.locations_id' => $to_gis_location->id
-				])
-				->where('inventory_capsule_lines.sub_locations_id',$to_gis_sub_location->id)
-				->exists();
-				if(!$isToLocationExist){
-					$capsules = DB::connection('gis')->table('inventory_capsules')->insertGetId([
-						'item_code' => $items->digits_code2,
-						'locations_id' => $to_gis_location->id
-					]);
-					
-					DB::connection('gis')->table('inventory_capsule_lines')->insert([
-						'inventory_capsules_id' => $capsules,
-						'sub_locations_id' => $to_gis_sub_location->id,
-						'qty' => 0,
-						'created_at' => date('Y-m-d H:i:s')
-					]);
-				}
-
 				$isQtyExceed = DB::connection('gis')->table('inventory_capsules')
 				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
 				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
