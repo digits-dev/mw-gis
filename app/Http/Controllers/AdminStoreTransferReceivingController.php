@@ -809,8 +809,12 @@
 			}else{
 				$items = DB::table('pos_pull')->where('st_document_number',$request->st_number)->get();
 				$to_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-					->where('location_id',$isGisSt->location_id_to)->where('description','IN TRANSIT')->first();
-				DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
+					->where('location_id',$isGisSt->location_id_to)->where('description','IN TRANSIT GREENHILLS')->first();
+				
+				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+					->where('location_id',$isGisSt->location_id_from)->where('description','IN TRANSIT MITSUKOSHI')->first();
+				
+					DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
 					'status'      => 'RECEIVED',
 					'received_by' => CRUDBooster::myId(),
 					'received_at' => date('Y-m-d H:i:s'),
@@ -854,6 +858,20 @@
 							'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 						]);
 					}
+
+					//REMOVE IN FROM INTRANSIT
+					DB::connection('gis')->table('inventory_capsules')
+					->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+					->where([
+						'items.digits_code' => $item->item_code,
+						'inventory_capsules.locations_id' => $item->location_id_from
+					])
+					->where('inventory_capsule_lines.sub_locations_id',$from_intransit_gis_sub_location->id)
+					->update([
+						'inventory_capsule_lines.qty' => DB::raw("inventory_capsule_lines.qty - $item->quantity"),
+						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+					]);
 					
 					//ADD GIS MOVEMENT HISTORY
 					//get item code
@@ -867,7 +885,7 @@
 						'capsule_action_types_id' => $capsuleAction->id,
 						'locations_id' => $item->location_id_to,
 						'from_sub_locations_id' => $item->sub_location_id_to,
-						'to_sub_locations_id' => $to_intransit_gis_sub_location->id,
+						'to_sub_locations_id' => $from_intransit_gis_sub_location->id,
 						'qty' =>$item->quantity,
 						'created_at' => date('Y-m-d H:i:s'),
 						'created_by' => $gis_mw_name->id
@@ -877,7 +895,7 @@
 						'item_code' => $item_code->digits_code2,
 						'capsule_action_types_id' => $capsuleAction->id,
 						'locations_id' => $item->location_id_to,
-						'from_sub_locations_id' => $to_intransit_gis_sub_location->id,
+						'from_sub_locations_id' => $from_intransit_gis_sub_location->id,
 						'to_sub_locations_id' => $item->sub_location_id_to,
 						'qty' => -1 * abs($item->quantity),
 						'created_at' => date('Y-m-d H:i:s'),
