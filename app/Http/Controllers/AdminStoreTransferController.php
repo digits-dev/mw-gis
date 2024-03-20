@@ -277,7 +277,9 @@
 				}
 				else{
 					$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status','pos_pull.created_date')
-					->where('pos_pull.stores_id',$store->id)->distinct();
+					->where('pos_pull.stores_id',$store->id)
+					->orderByRaw('FIELD(pos_pull.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
+					->distinct();
 				}
 				
 			}

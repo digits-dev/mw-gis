@@ -11,6 +11,8 @@
 	use App\GisPull;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
+	use App\CodeCounter;
+	
 	class AdminStoreTransferGisController extends \crocodicstudio\crudbooster\controllers\CBController {
 		private const Pending = 'PENDING';
 		private const Void    = 'VOID';
@@ -505,10 +507,16 @@
 				}
 			}
 	
-			// //CREATE HEADER
-			$count_header = DB::table('pos_pull')->count();
-			$header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			
-			$st_ref_no	  = "ST-".$header_ref;
+			//CREATE HEADER
+			$code_counter = CodeCounter::where('id', 2)->value('pullout_refcode');
+			$st_ref_no = 'ST-'.str_pad($code_counter, 7, '0', STR_PAD_LEFT);
+			if(empty($st_ref_no)){
+				//back to old form
+				CRUDBooster::redirect(CRUDBooster::adminpath('store_pullout'),'Failed! No STS has been created.','danger')->send();
+			}
+			// $count_header = DB::table('pos_pull')->count();
+			// $header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			
+			// $st_ref_no	  = "ST-".$header_ref;
 
 			foreach ($request->digits_code as $key_item => $value_item) {
 				$st_qty = str_replace(',', '',$request->st_quantity[$key_item]); 
@@ -628,6 +636,8 @@
 				//INSERT IN MW GIS PULL LINES
 				$record = DB::table('pos_pull')->insert($stDetails);
 			}
+
+			DB::table('code_counter')->where('id', 2)->increment('pullout_refcode');
 
 			if($record){
 				CRUDBooster::insertLog(trans("crudbooster.sts_created", ['ref_number' =>$st_ref_no]));
