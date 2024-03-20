@@ -809,10 +809,10 @@
 			}else{
 				$items = DB::table('pos_pull')->where('st_document_number',$request->st_number)->get();
 				$to_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-					->where('location_id',$isGisSt->location_id_to)->where('description','IN TRANSIT GREENHILLS')->first();
+					->where('location_id',$isGisSt->location_id_to)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 				
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-					->where('location_id',$isGisSt->location_id_from)->where('description','IN TRANSIT MITSUKOSHI')->first();
+					->where('location_id',$isGisSt->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 				
 					DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
 					'status'      => 'RECEIVED',

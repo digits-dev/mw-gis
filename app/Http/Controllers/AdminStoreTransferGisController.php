@@ -485,9 +485,9 @@
 			$to_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 			->where('location_id',$to_gis_location->id)->where('description','STOCK ROOM')->first();
 			$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-			->where('location_id',$request->location_id_from)->where('description','IN TRANSIT MITSUKOSHI')->first();
+			->where('location_id',$request->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 			if(!$to_gis_location){
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Location in GIS not match!','danger')->send();
+				CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'),'Failed! Location in GIS not match!','danger')->send();
 			}
 			foreach ($request->digits_code as $key => $val) {
 				$isQtyExceed = DB::connection('gis')->table('inventory_capsules')
@@ -501,7 +501,7 @@
 				->where('inventory_capsule_lines.qty','<',str_replace(',', '',$request->st_quantity[$key]))
 				->exists();
 				if($isQtyExceed){
-					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Quantity must be equal or less than in GIS Inventory!','danger')->send();
+					CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'),'Failed! Quantity must be equal or less than in GIS Inventory!','danger')->send();
 				}
 			}
 	
