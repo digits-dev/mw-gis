@@ -509,7 +509,7 @@
 	
 			//CREATE HEADER
 			$code_counter = CodeCounter::where('id', 2)->value('pullout_refcode');
-			$st_ref_no = 'ST-'.str_pad($code_counter, 7, '0', STR_PAD_LEFT);
+			$st_ref_no = 'STS-'.str_pad($code_counter, 7, '0', STR_PAD_LEFT);
 			if(empty($st_ref_no)){
 				//back to old form
 				CRUDBooster::redirect(CRUDBooster::adminpath('store_pullout'),'Failed! No STS has been created.','danger')->send();

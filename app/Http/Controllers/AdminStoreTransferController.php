@@ -1222,7 +1222,7 @@
 						'created_by' => $gis_mw_name->id
 					]);
 				}
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been reverse successfully!','success')->send();
+				CRUDBooster::redirect(CRUDBooster::mainpath(), $st_number.' has been reverse successfully!','success')->send();
 			}
 			
 		}
