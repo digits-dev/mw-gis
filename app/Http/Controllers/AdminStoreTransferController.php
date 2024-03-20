@@ -1196,7 +1196,7 @@
 					$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
 					$item_code = DB::connection('gis')->table('items')->where('digits_code',$item->item_code)->first();
 					$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
-					->where('description','VOID')->first();
+					->where('description','ST-REVERSAL')->first();
 					DB::connection('gis')->table('history_capsules')->insert([
 						'reference_number' => $st_number,
 						'item_code' => $item_code->digits_code2,
@@ -1220,7 +1220,7 @@
 						'created_by' => $gis_mw_name->id
 					]);
 				}
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
+				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been reverse successfully!','success')->send();
 			}
 			
 		}
