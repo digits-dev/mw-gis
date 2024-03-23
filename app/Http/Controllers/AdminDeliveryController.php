@@ -730,11 +730,11 @@
 				'ebs_pull.status')
 			->leftJoin('items', 'ebs_pull.ordered_item', '=', 'items.digits_code');
 			
-			\Log::info(\Request::get('filter_column'));
+			\Log::info($request->filter_column);
 			
-			if(\Request::get('filter_column')) {
+			if(sizeof($request->filter_column) != 0) {
 
-				$filter_column = \Request::get('filter_column');
+				$filter_column = $request->filter_column;
 
 				$dr_item->where(function($w) use ($filter_column,$fc) {
 					foreach($filter_column as $key=>$fc) {
@@ -848,7 +848,7 @@
 			}
 
 			$dr_item->orderBy('ebs_pull.dr_number', 'asc');
-			ini_set('max_execution_time', 0);
+			
 			$drItems = $dr_item->get();
 			
 			$headings = array('DR #',
@@ -903,173 +903,174 @@
 		{
 			$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 			ini_set('memory_limit', -1);
+
+			$dr_item = DB::table('ebs_pull')->select(
+				'ebs_pull.dr_number',
+				'ebs_pull.st_document_number as st_number',
+				'ebs_pull.ordered_item as digits_code',
+				'items.upc_code',
+				'items.item_description',
+				'ebs_pull.customer_name as destination',
+				'ebs_pull.shipped_quantity as dr_quantity',
+				'serials.serial_number',
+				'ebs_pull.created_at as created_date',
+				'ebs_pull.received_at as received_date',
+				'ebs_pull.status')
+			->leftJoin('items', 'ebs_pull.ordered_item', '=', 'items.digits_code')
+			->leftJoin('serials', 'ebs_pull.id', '=', 'serials.ebs_pull_id');
+			
+			\Log::info($request->filter_column);
+			
+			if(sizeof($request->filter_column) != 0) {
+
+				$filter_column = $request->filter_column;
+
+				$dr_item->where(function($w) use ($filter_column,$fc) {
+					foreach($filter_column as $key=>$fc) {
+
+						$value = @$fc['value'];
+						$type  = @$fc['type'];
+
+						if($type == 'empty') {
+							$w->whereNull($key)->orWhere($key,'');
+							continue;
+						}
+
+						if($value=='' || $type=='') continue;
+
+						if($type == 'between') continue;
+
+						switch($type) {
+							default:
+								if($key && $type && $value) $w->where($key,$type,$value);
+							break;
+							case 'like':
+							case 'not like':
+								$value = '%'.$value.'%';
+								if($key && $type && $value) $w->where($key,$type,$value);
+							break;
+							case 'in':
+							case 'not in':
+								if($value) {
+									$value = explode(',',$value);
+									if($key && $value) $w->whereIn($key,$value);
+								}
+							break;
+						}
+					}
+				});
+
+				foreach($filter_column as $key=>$fc) {
+					$value = @$fc['value'];
+					$type  = @$fc['type'];
+					$sorting = @$fc['sorting'];
+
+					if($sorting!='') {
+						if($key) {
+							$dr_item->orderby($key,$sorting);
+							$filter_is_orderby = true;
+						}
+					}
+
+					if ($type=='between') {
+						if($key && $value) $dr_item->whereBetween($key,$value);
+					}
+
+					else {
+						continue;
+					}
+				}
+			}
+			if(!CRUDBooster::isSuperAdmin() && !in_array(CRUDBooster::myPrivilegeName(),["Retail Ops","Franchise Ops","Rtl Fra Ops","Rtl Onl Viewer","Audit","Inventory Control","Merch","Online Ops","Online Viewer","Approver","Franchise Approver"])){
+				$dr_item->where('ebs_pull.customer_name',$store->bea_mo_store_name)
+					->orWhere('ebs_pull.customer_name',$store->bea_so_store_name);
+			}
+			if(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
+				//get approval matrix
+				$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
+				
+				$approval_array = array();
+				foreach($approvalMatrix as $matrix){
+					array_push($approval_array, $matrix->store_list);
+				}
+				$approval_string = implode(",",$approval_array);
+				$storeList = array_map('intval',explode(",",$approval_string));
+
+				$dr_item->whereIn('ebs_pull.stores_id', array_values((array)$storeList))
+					->where('ebs_pull.status','!=','PROCESSING');
+			}
+			elseif(in_array(CRUDBooster::myPrivilegeName(),["Franchise Ops"])){
+				$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FRA');
+			}
+			elseif (in_array(CRUDBooster::myPrivilegeName(),["Retail Ops"])) {
+				if(empty($store)){
+					$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL');
+				}
+				else{
+					$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL')
+					->whereIn('ebs_pull.customer_name', function ($sub_query) use ($store) {
+						$sub_query->select('ebs_pull.customer_name')->from('ebs_pull')
+						->where('ebs_pull.customer_name',$store->bea_mo_store_name)
+						->orWhere('ebs_pull.customer_name',$store->bea_so_store_name)->distinct()->get()->toArray();
+					});
+				}
+			}
+			elseif (in_array(CRUDBooster::myPrivilegeName(),["Rtl Fra Ops"])) {
+				$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL')
+				->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FRA');
+			}
+			elseif (in_array(CRUDBooster::myPrivilegeName(),["Rtl Onl Viewer"])) {
+				$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL')
+				->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBD')
+				->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBV');
+			}
+			elseif (in_array(CRUDBooster::myPrivilegeName(),["Online Ops","Online Viewer"])) {
+				$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBD')
+				->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBV');
+			}
+			$dr_item->orderBy('ebs_pull.dr_number', 'asc');
+			$drItems = $dr_item->get();
+			
+			$headings = array('DR #',
+				'ST #',
+				'DIGITS CODE',
+				'UPC CODE',
+				'ITEM DESCRIPTION',
+				'SOURCE',
+				'DESTINATION',
+				'QTY',
+				'SERIAL #',
+				'CREATED DATE',
+				'RECEIVED DATE',
+				'STATUS');
+
+			foreach($drItems as $item) {
+
+				$items_array[] = array(
+					$item->dr_number,
+					$item->st_number,
+					$item->digits_code,	
+					'="'.$item->upc_code.'"',			
+					$item->item_description,
+					'DIGITSWAREHOUSE',
+					$item->destination,
+					(empty($item->serial_number)) ? $item->dr_quantity : 1,
+					$item->serial_number,
+					$item->created_date,
+					$item->received_date,
+					$item->status
+				);
+			}
+			
 			ini_set('max_execution_time', 0);
-			Excel::create('Export Delivery with Serial - '.date("Ymd H:i:sa"), function($excel) use ($store){
-				$excel->sheet('dr-serialzed', function($sheet) use ($store){
+			Excel::create('Export Delivery with Serial - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
+				$excel->sheet('dr-serialzed', function($sheet) use ($headings, $items_array){
 					// Set auto size for sheet
 					$sheet->setAutoSize(true);
 					$sheet->setColumnFormat(array(
 						'D' => '@',
 					));
 	
-					$dr_item = DB::table('ebs_pull')->select(
-						'ebs_pull.dr_number',
-						'ebs_pull.st_document_number as st_number',
-						'ebs_pull.ordered_item as digits_code',
-						'items.upc_code',
-						'items.item_description',
-						'ebs_pull.customer_name as destination',
-						'ebs_pull.shipped_quantity as dr_quantity',
-						'serials.serial_number',
-						'ebs_pull.created_at as created_date',
-						'ebs_pull.received_at as received_date',
-						'ebs_pull.status')
-					->leftJoin('items', 'ebs_pull.ordered_item', '=', 'items.digits_code')
-					->leftJoin('serials', 'ebs_pull.id', '=', 'serials.ebs_pull_id');
-					
-					\Log::info(\Request::get('filter_column'));
-					
-					if(\Request::get('filter_column')) {
-
-						$filter_column = \Request::get('filter_column');
-	
-						$dr_item->where(function($w) use ($filter_column,$fc) {
-							foreach($filter_column as $key=>$fc) {
-	
-								$value = @$fc['value'];
-								$type  = @$fc['type'];
-	
-								if($type == 'empty') {
-									$w->whereNull($key)->orWhere($key,'');
-									continue;
-								}
-	
-								if($value=='' || $type=='') continue;
-	
-								if($type == 'between') continue;
-	
-								switch($type) {
-									default:
-										if($key && $type && $value) $w->where($key,$type,$value);
-									break;
-									case 'like':
-									case 'not like':
-										$value = '%'.$value.'%';
-										if($key && $type && $value) $w->where($key,$type,$value);
-									break;
-									case 'in':
-									case 'not in':
-										if($value) {
-											$value = explode(',',$value);
-											if($key && $value) $w->whereIn($key,$value);
-										}
-									break;
-								}
-							}
-						});
-	
-						foreach($filter_column as $key=>$fc) {
-							$value = @$fc['value'];
-							$type  = @$fc['type'];
-							$sorting = @$fc['sorting'];
-	
-							if($sorting!='') {
-								if($key) {
-									$dr_item->orderby($key,$sorting);
-									$filter_is_orderby = true;
-								}
-							}
-	
-							if ($type=='between') {
-								if($key && $value) $dr_item->whereBetween($key,$value);
-							}
-	
-							else {
-								continue;
-							}
-						}
-					}
-					if(!CRUDBooster::isSuperAdmin() && !in_array(CRUDBooster::myPrivilegeName(),["Retail Ops","Franchise Ops","Rtl Fra Ops","Rtl Onl Viewer","Audit","Inventory Control","Merch","Online Ops","Online Viewer","Approver","Franchise Approver"])){
-						$dr_item->where('ebs_pull.customer_name',$store->bea_mo_store_name)
-							->orWhere('ebs_pull.customer_name',$store->bea_so_store_name);
-					}
-					if(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
-    					//get approval matrix
-    					$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
-    					
-    					$approval_array = array();
-    					foreach($approvalMatrix as $matrix){
-    						array_push($approval_array, $matrix->store_list);
-    					}
-    					$approval_string = implode(",",$approval_array);
-    					$storeList = array_map('intval',explode(",",$approval_string));
-    	
-    					$dr_item->whereIn('ebs_pull.stores_id', array_values((array)$storeList))
-    						->where('ebs_pull.status','!=','PROCESSING');
-    				}
-					elseif(in_array(CRUDBooster::myPrivilegeName(),["Franchise Ops"])){
-						$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FRA');
-					}
-					elseif (in_array(CRUDBooster::myPrivilegeName(),["Retail Ops"])) {
-					    if(empty($store)){
-						    $dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL');
-					    }
-					    else{
-					        $dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL')
-					        ->whereIn('ebs_pull.customer_name', function ($sub_query) use ($store) {
-        					    $sub_query->select('ebs_pull.customer_name')->from('ebs_pull')
-        					    ->where('ebs_pull.customer_name',$store->bea_mo_store_name)
-        					    ->orWhere('ebs_pull.customer_name',$store->bea_so_store_name)->distinct()->get()->toArray();
-        					});
-					    }
-					}
-					elseif (in_array(CRUDBooster::myPrivilegeName(),["Rtl Fra Ops"])) {
-						$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL')
-						->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FRA');
-					}
-					elseif (in_array(CRUDBooster::myPrivilegeName(),["Rtl Onl Viewer"])) {
-						$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'RTL')
-						->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBD')
-						->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBV');
-					}
-					elseif (in_array(CRUDBooster::myPrivilegeName(),["Online Ops","Online Viewer"])) {
-						$dr_item->where(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBD')
-						->orWhere(DB::raw('substr(ebs_pull.customer_name, -3)'), '=', 'FBV');
-					}
-					$dr_item->orderBy('ebs_pull.dr_number', 'asc');
-					$drItems = $dr_item->get();
-					
-					$headings = array('DR #',
-						'ST #',
-						'DIGITS CODE',
-						'UPC CODE',
-						'ITEM DESCRIPTION',
-						'SOURCE',
-						'DESTINATION',
-						'QTY',
-						'SERIAL #',
-						'CREATED DATE',
-						'RECEIVED DATE',
-						'STATUS');
-
-					foreach($drItems as $item) {
-	
-						$items_array[] = array(
-							$item->dr_number,
-							$item->st_number,
-							$item->digits_code,	
-							'="'.$item->upc_code.'"',			
-							$item->item_description,
-							'DIGITSWAREHOUSE',
-							$item->destination,
-							(empty($item->serial_number)) ? $item->dr_quantity : 1,
-							$item->serial_number,
-							$item->created_date,
-							$item->received_date,
-							$item->status
-						);
-					}
-					
 					$sheet->fromArray($items_array, null, 'A1', false, false);
 					$sheet->prependRow(1, $headings);
 					$sheet->row(1, function($row) {

@@ -608,177 +608,179 @@
 		{
 			$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 			ini_set('memory_limit', '-1');
-			Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($store){
-				$excel->sheet('sts', function($sheet) use ($store){
+
+			$sts_item = DB::table('pos_pull')->select(
+				'pos_pull.st_document_number as st_number',
+				'pos_pull.received_st_number',
+				'reason.pullout_reason',
+				'pos_pull.item_code as digits_code',
+				'items.upc_code',
+				'items.item_description',
+				'stores.bea_so_store_name as source',
+				'stores1.bea_so_store_name as destination',
+				'pos_pull.quantity as sts_quantity',
+				'transport_types.transport_type as transport_by',
+				'pos_pull.scheduled_at',
+				'scheduled_log.name as scheduled_by',
+				'pos_pull.created_at as created_date',
+				'pos_pull.received_st_date as received_date',
+				'pos_pull.status')
+			->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
+			->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
+			->leftJoin('cms_users as scheduled_log', 'pos_pull.scheduled_by', '=', 'scheduled_log.id')
+			->leftJoin('reason', 'pos_pull.reason_id', '=', 'reason.id')
+			->leftJoin('stores as stores', 'pos_pull.stores_id', '=', 'stores.id')
+			->leftJoin('stores as stores1', 'pos_pull.stores_id_destination', '=', 'stores1.id');
+			
+			if(sizeof($request->filter_column) != 0) {
+
+				$filter_column = $request->filter_column;
+
+				$sts_item->where(function($w) use ($filter_column,$fc) {
+					foreach($filter_column as $key=>$fc) {
+
+						$value = @$fc['value'];
+						$type  = @$fc['type'];
+
+						if($type == 'empty') {
+							$w->whereNull($key)->orWhere($key,'');
+							continue;
+						}
+
+						if($value=='' || $type=='') continue;
+
+						if($type == 'between') continue;
+
+						switch($type) {
+							default:
+								if($key && $type && $value) $w->where($key,$type,$value);
+							break;
+							case 'like':
+							case 'not like':
+								$value = '%'.$value.'%';
+								if($key && $type && $value) $w->where($key,$type,$value);
+							break;
+							case 'in':
+							case 'not in':
+								if($value) {
+									$value = explode(',',$value);
+									if($key && $value) $w->whereIn($key,$value);
+								}
+							break;
+						}
+					}
+				});
+
+				foreach($filter_column as $key=>$fc) {
+					$value = @$fc['value'];
+					$type  = @$fc['type'];
+					$sorting = @$fc['sorting'];
+
+					if($sorting!='') {
+						if($key) {
+							$sts_item->orderby($key,$sorting);
+							$filter_is_orderby = true;
+						}
+					}
+
+					if ($type=='between') {
+						if($key && $value) $sts_item->whereBetween($key,$value);
+					}
+
+					else {
+						continue;
+					}
+				}
+			}
+			if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
+				if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
+					$sts_item->where('pos_pull.transport_types_id',1);
+				}
+				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
+					//get approval matrix
+					$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
+				
+					$approval_array = array();
+					foreach($approvalMatrix as $matrix){
+						array_push($approval_array, $matrix->store_list);
+					}
+					$approval_string = implode(",",$approval_array);
+					$storeList = array_map('intval',explode(",",$approval_string));
+
+					//compare the store_list of approver to purchase header store_id
+					$sts_item->whereIn('pos_pull.stores_id', array_values((array)$storeList));
+				}
+				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])){
+					if(empty($store)){
+						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel());
+					}
+					else{
+						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel())
+						->where(function($subquery) use ($store) {
+							$subquery->whereIn('pos_pull.stores_id',CRUDBooster::myStore())->orWhere('pos_pull.wh_to',$store->pos_warehouse);
+						});
+					}
+				}
+				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
+					$sts_item->whereIn('pos_pull.channel_id', [1,2]);
+				}
+				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
+					$sts_item->whereIn('pos_pull.channel_id', [1,2,4]);
+				}
+				else{
+					
+					$sts_item->where(function($subquery) use ($store) {
+						$subquery->where('stores.bea_so_store_name',$store->bea_so_store_name)
+						->orWhere('stores1.bea_so_store_name',$store->bea_so_store_name);
+					});
+				}
+			}
+			$sts_item->orderBy('pos_pull.st_document_number', 'asc');
+			$stsItems = $sts_item->get();
+			
+			$headings = array('ST #',
+				'RECEIVED ST #',
+				'REASON',
+				'DIGITS CODE',
+				'UPC CODE',
+				'ITEM DESCRIPTION',
+				'SOURCE',
+				'DESTINATION',
+				'QTY',
+				'TRANSPORT BY',
+				'SCHEDULED DATE/BY',
+				'CREATED DATE',
+				'RECEIVED DATE',
+				'STATUS');
+
+			foreach($stsItems as $item) {
+
+				$items_array[] = array(
+					$item->st_number,
+					$item->received_st_number,
+					$item->pullout_reason,
+					$item->digits_code,	
+					'="'.$item->upc_code.'"',			
+					$item->item_description,	
+					$item->source,
+					$item->destination,
+					$item->sts_quantity,
+					$item->transport_by,
+					(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
+					$item->created_date,
+					$item->received_date,
+					$item->status
+				);
+			}
+
+			ini_set('max_execution_time', 0);
+			Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
+				$excel->sheet('sts', function($sheet) use ($headings, $items_array){
 					// Set auto size for sheet
 					$sheet->setAutoSIZE(true);
 					$sheet->setColumnFormat(array(
 						'D' => '@',
 					));
-
-					$sts_item = DB::table('pos_pull')->select(
-						'pos_pull.st_document_number as st_number',
-						'pos_pull.received_st_number',
-						'reason.pullout_reason',
-						'pos_pull.item_code as digits_code',
-						'items.upc_code',
-						'items.item_description',
-						'stores.bea_so_store_name as source',
-						'stores1.bea_so_store_name as destination',
-						'pos_pull.quantity as sts_quantity',
-						'transport_types.transport_type as transport_by',
-						'pos_pull.scheduled_at',
-						'scheduled_log.name as scheduled_by',
-						'pos_pull.created_at as created_date',
-						'pos_pull.received_st_date as received_date',
-						'pos_pull.status')
-					->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
-					->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-					->leftJoin('cms_users as scheduled_log', 'pos_pull.scheduled_by', '=', 'scheduled_log.id')
-					->leftJoin('reason', 'pos_pull.reason_id', '=', 'reason.id')
-					->leftJoin('stores as stores', 'pos_pull.stores_id', '=', 'stores.id')
-					->leftJoin('stores as stores1', 'pos_pull.stores_id_destination', '=', 'stores1.id');
-					
-					if(\Request::get('filter_column')) {
-
-						$filter_column = \Request::get('filter_column');
-	
-						$sts_item->where(function($w) use ($filter_column,$fc) {
-							foreach($filter_column as $key=>$fc) {
-	
-								$value = @$fc['value'];
-								$type  = @$fc['type'];
-	
-								if($type == 'empty') {
-									$w->whereNull($key)->orWhere($key,'');
-									continue;
-								}
-	
-								if($value=='' || $type=='') continue;
-	
-								if($type == 'between') continue;
-	
-								switch($type) {
-									default:
-										if($key && $type && $value) $w->where($key,$type,$value);
-									break;
-									case 'like':
-									case 'not like':
-										$value = '%'.$value.'%';
-										if($key && $type && $value) $w->where($key,$type,$value);
-									break;
-									case 'in':
-									case 'not in':
-										if($value) {
-											$value = explode(',',$value);
-											if($key && $value) $w->whereIn($key,$value);
-										}
-									break;
-								}
-							}
-						});
-	
-						foreach($filter_column as $key=>$fc) {
-							$value = @$fc['value'];
-							$type  = @$fc['type'];
-							$sorting = @$fc['sorting'];
-	
-							if($sorting!='') {
-								if($key) {
-									$sts_item->orderby($key,$sorting);
-									$filter_is_orderby = true;
-								}
-							}
-	
-							if ($type=='between') {
-								if($key && $value) $sts_item->whereBetween($key,$value);
-							}
-	
-							else {
-								continue;
-							}
-						}
-					}
-					if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
-						if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-							$sts_item->where('pos_pull.transport_types_id',1);
-						}
-						elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
-							//get approval matrix
-							$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
-						
-							$approval_array = array();
-							foreach($approvalMatrix as $matrix){
-								array_push($approval_array, $matrix->store_list);
-							}
-							$approval_string = implode(",",$approval_array);
-							$storeList = array_map('intval',explode(",",$approval_string));
-		
-							//compare the store_list of approver to purchase header store_id
-							$sts_item->whereIn('pos_pull.stores_id', array_values((array)$storeList));
-						}
-						elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])){
-						    if(empty($store)){
-							    $sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel());
-						    }
-						    else{
-						        $sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel())
-						        ->where(function($subquery) use ($store) {
-                                    $subquery->whereIn('pos_pull.stores_id',CRUDBooster::myStore())->orWhere('pos_pull.wh_to',$store->pos_warehouse);
-                                });
-						    }
-						}
-						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
-					        $sts_item->whereIn('pos_pull.channel_id', [1,2]);
-				        }
-				        elseif(CRUDBooster::myPrivilegeName() == "Reports") {
-					        $sts_item->whereIn('pos_pull.channel_id', [1,2,4]);
-				        }
-						else{
-						    
-						    $sts_item->where(function($subquery) use ($store) {
-                                $subquery->where('stores.bea_so_store_name',$store->bea_so_store_name)
-								->orWhere('stores1.bea_so_store_name',$store->bea_so_store_name);
-                            });
-						}
-					}
-					$sts_item->orderBy('pos_pull.st_document_number', 'asc');
-					$stsItems = $sts_item->get();
-					//dd($stsItems);
-					$headings = array('ST #',
-						'RECEIVED ST #',
-						'REASON',
-						'DIGITS CODE',
-						'UPC CODE',
-						'ITEM DESCRIPTION',
-						'SOURCE',
-						'DESTINATION',
-						'QTY',
-						'TRANSPORT BY',
-						'SCHEDULED DATE/BY',
-						'CREATED DATE',
-						'RECEIVED DATE',
-						'STATUS');
-
-					foreach($stsItems as $item) {
-	
-						$items_array[] = array(
-							$item->st_number,
-							$item->received_st_number,
-							$item->pullout_reason,
-							$item->digits_code,	
-							'="'.$item->upc_code.'"',			
-							$item->item_description,	
-							$item->source,
-							$item->destination,
-							$item->sts_quantity,
-							$item->transport_by,
-							(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
-							$item->created_date,
-							$item->received_date,
-							$item->status
-						);
-					}
 					
 					$sheet->fromArray($items_array, null, 'A1', false, false);
 					$sheet->prependRow(1, $headings);
@@ -795,180 +797,182 @@
 		{
 			$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 			ini_set('memory_limit', '-1');
-			Excel::create('Export STS with Serial- '.date("Ymd H:i:sa"), function($excel) use ($store){
-				$excel->sheet('sts-serial', function($sheet) use ($store){
+
+			$sts_item = DB::table('pos_pull')->select(
+				'pos_pull.st_document_number as st_number',
+				'pos_pull.received_st_number',
+				'reason.pullout_reason',
+				'pos_pull.item_code as digits_code',
+				'items.upc_code',
+				'items.item_description',
+				'stores.bea_so_store_name as source',
+				'stores1.bea_so_store_name as destination',
+				'pos_pull.quantity as sts_quantity',
+				'serials.serial_number',
+				'transport_types.transport_type as transport_by',
+				'pos_pull.scheduled_at',
+				'scheduled_log.name as scheduled_by',
+				'pos_pull.created_at as created_date',
+				'pos_pull.received_st_date as received_date',
+				'pos_pull.status')
+			->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
+			->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
+			->leftJoin('cms_users as scheduled_log', 'pos_pull.scheduled_by', '=', 'scheduled_log.id')
+			->leftJoin('reason', 'pos_pull.reason_id', '=', 'reason.id')
+			->leftJoin('serials', 'pos_pull.id', '=', 'serials.pos_pull_id')
+			->leftJoin('stores', 'pos_pull.stores_id', '=', 'stores.id')
+			->leftJoin('stores as stores1', 'pos_pull.stores_id_destination', '=', 'stores1.id');
+			
+			if(sizeof($request->filter_column) != 0) {
+
+				$filter_column = $request->filter_column;
+
+				$sts_item->where(function($w) use ($filter_column,$fc) {
+					foreach($filter_column as $key=>$fc) {
+
+						$value = @$fc['value'];
+						$type  = @$fc['type'];
+
+						if($type == 'empty') {
+							$w->whereNull($key)->orWhere($key,'');
+							continue;
+						}
+
+						if($value=='' || $type=='') continue;
+
+						if($type == 'between') continue;
+
+						switch($type) {
+							default:
+								if($key && $type && $value) $w->where($key,$type,$value);
+							break;
+							case 'like':
+							case 'not like':
+								$value = '%'.$value.'%';
+								if($key && $type && $value) $w->where($key,$type,$value);
+							break;
+							case 'in':
+							case 'not in':
+								if($value) {
+									$value = explode(',',$value);
+									if($key && $value) $w->whereIn($key,$value);
+								}
+							break;
+						}
+					}
+				});
+
+				foreach($filter_column as $key=>$fc) {
+					$value = @$fc['value'];
+					$type  = @$fc['type'];
+					$sorting = @$fc['sorting'];
+
+					if($sorting!='') {
+						if($key) {
+							$sts_item->orderby($key,$sorting);
+							$filter_is_orderby = true;
+						}
+					}
+
+					if ($type=='between') {
+						if($key && $value) $sts_item->whereBetween($key,$value);
+					}
+
+					else {
+						continue;
+					}
+				}
+			}
+			if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
+				if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
+					$sts_item->where('pos_pull.transport_types_id',1);
+				}
+				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
+					//get approval matrix
+					$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
+				
+					$approval_array = array();
+					foreach($approvalMatrix as $matrix){
+						array_push($approval_array, $matrix->store_list);
+					}
+					$approval_string = implode(",",$approval_array);
+					$storeList = array_map('intval',explode(",",$approval_string));
+
+					//compare the store_list of approver to purchase header store_id
+					$sts_item->whereIn('pos_pull.stores_id', array_values((array)$storeList));
+				}
+				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])){
+					if(empty($store)){
+						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel());
+					}
+					else{
+						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel())
+						->where(function($subquery) use ($store) {
+							$subquery->whereIn('pos_pull.stores_id',CRUDBooster::myStore())->orWhere('pos_pull.wh_to',$store->pos_warehouse);
+						});
+					}
+				}
+				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
+					$sts_item->whereIn('pos_pull.channel_id', [1,2]);
+				}
+				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
+					$sts_item->whereIn('pos_pull.channel_id', [1,2,4]);
+				}
+				else {
+					$sts_item->where(function($subquery) use ($store) {
+						$subquery->where('stores.bea_so_store_name',$store->bea_so_store_name)
+						->orWhere('stores1.bea_so_store_name',$store->bea_so_store_name);
+					});
+				}
+			}
+			$sts_item->orderBy('pos_pull.st_document_number', 'asc');
+			$stsItems = $sts_item->get();
+			
+			$headings = array('ST #',
+				'RECEIVED ST #',
+				'REASON',
+				'DIGITS CODE',
+				'UPC CODE',
+				'ITEM DESCRIPTION',
+				'SOURCE',
+				'DESTINATION',
+				'QTY',
+				'SERIAL #',
+				'TRANSPORT BY',
+				'SCHEDULED DATE/BY',
+				'CREATED DATE',
+				'RECEIVED DATE',
+				'STATUS');
+
+			foreach($stsItems as $item) {
+
+				$items_array[] = array(
+					$item->st_number,
+					$item->received_st_number,
+					$item->pullout_reason,
+					$item->digits_code,	
+					'="'.$item->upc_code.'"',			
+					$item->item_description,	
+					$item->source,
+					$item->destination,
+					(empty($item->serial_number)) ? $item->sts_quantity : 1,
+					$item->serial_number,
+					$item->transport_by,
+					(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
+					$item->created_date,
+					$item->received_date,
+					$item->status
+				);
+			}
+
+			ini_set('max_execution_time', 0);
+			Excel::create('Export STS with Serial- '.date("Ymd H:i:sa"), function($excel) use ($headings,$items_array){
+				$excel->sheet('sts-serial', function($sheet) use ($headings,$items_array){
 					// Set auto size for sheet
 					$sheet->setAutoSIZE(true);
 					$sheet->setColumnFormat(array(
 						'D' => '@',
 					));
-
-					$sts_item = DB::table('pos_pull')->select(
-						'pos_pull.st_document_number as st_number',
-						'pos_pull.received_st_number',
-						'reason.pullout_reason',
-						'pos_pull.item_code as digits_code',
-						'items.upc_code',
-						'items.item_description',
-						'stores.bea_so_store_name as source',
-						'stores1.bea_so_store_name as destination',
-						'pos_pull.quantity as sts_quantity',
-						'serials.serial_number',
-						'transport_types.transport_type as transport_by',
-						'pos_pull.scheduled_at',
-						'scheduled_log.name as scheduled_by',
-						'pos_pull.created_at as created_date',
-						'pos_pull.received_st_date as received_date',
-						'pos_pull.status')
-					->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
-					->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-					->leftJoin('cms_users as scheduled_log', 'pos_pull.scheduled_by', '=', 'scheduled_log.id')
-					->leftJoin('reason', 'pos_pull.reason_id', '=', 'reason.id')
-					->leftJoin('serials', 'pos_pull.id', '=', 'serials.pos_pull_id')
-					->leftJoin('stores', 'pos_pull.stores_id', '=', 'stores.id')
-					->leftJoin('stores as stores1', 'pos_pull.stores_id_destination', '=', 'stores1.id');
-					
-					if(\Request::get('filter_column')) {
-
-						$filter_column = \Request::get('filter_column');
-	
-						$sts_item->where(function($w) use ($filter_column,$fc) {
-							foreach($filter_column as $key=>$fc) {
-	
-								$value = @$fc['value'];
-								$type  = @$fc['type'];
-	
-								if($type == 'empty') {
-									$w->whereNull($key)->orWhere($key,'');
-									continue;
-								}
-	
-								if($value=='' || $type=='') continue;
-	
-								if($type == 'between') continue;
-	
-								switch($type) {
-									default:
-										if($key && $type && $value) $w->where($key,$type,$value);
-									break;
-									case 'like':
-									case 'not like':
-										$value = '%'.$value.'%';
-										if($key && $type && $value) $w->where($key,$type,$value);
-									break;
-									case 'in':
-									case 'not in':
-										if($value) {
-											$value = explode(',',$value);
-											if($key && $value) $w->whereIn($key,$value);
-										}
-									break;
-								}
-							}
-						});
-	
-						foreach($filter_column as $key=>$fc) {
-							$value = @$fc['value'];
-							$type  = @$fc['type'];
-							$sorting = @$fc['sorting'];
-	
-							if($sorting!='') {
-								if($key) {
-									$sts_item->orderby($key,$sorting);
-									$filter_is_orderby = true;
-								}
-							}
-	
-							if ($type=='between') {
-								if($key && $value) $sts_item->whereBetween($key,$value);
-							}
-	
-							else {
-								continue;
-							}
-						}
-					}
-					if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
-						if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-							$sts_item->where('pos_pull.transport_types_id',1);
-						}
-						elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
-							//get approval matrix
-							$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
-						
-							$approval_array = array();
-							foreach($approvalMatrix as $matrix){
-								array_push($approval_array, $matrix->store_list);
-							}
-							$approval_string = implode(",",$approval_array);
-							$storeList = array_map('intval',explode(",",$approval_string));
-		
-							//compare the store_list of approver to purchase header store_id
-							$sts_item->whereIn('pos_pull.stores_id', array_values((array)$storeList));
-						}
-						elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])){
-						    if(empty($store)){
-							    $sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel());
-						    }
-						    else{
-						        $sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel())
-						        ->where(function($subquery) use ($store) {
-                                    $subquery->whereIn('pos_pull.stores_id',CRUDBooster::myStore())->orWhere('pos_pull.wh_to',$store->pos_warehouse);
-                                });
-						    }
-						}
-						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
-					        $sts_item->whereIn('pos_pull.channel_id', [1,2]);
-				        }
-				        elseif(CRUDBooster::myPrivilegeName() == "Reports") {
-					        $sts_item->whereIn('pos_pull.channel_id', [1,2,4]);
-				        }
-						else {
-							$sts_item->where(function($subquery) use ($store) {
-                                $subquery->where('stores.bea_so_store_name',$store->bea_so_store_name)
-								->orWhere('stores1.bea_so_store_name',$store->bea_so_store_name);
-                            });
-						}
-					}
-					$sts_item->orderBy('pos_pull.st_document_number', 'asc');
-					$stsItems = $sts_item->get();
-					//dd($stsItems);
-					$headings = array('ST #',
-						'RECEIVED ST #',
-						'REASON',
-						'DIGITS CODE',
-						'UPC CODE',
-						'ITEM DESCRIPTION',
-						'SOURCE',
-						'DESTINATION',
-						'QTY',
-						'SERIAL #',
-						'TRANSPORT BY',
-						'SCHEDULED DATE/BY',
-						'CREATED DATE',
-						'RECEIVED DATE',
-						'STATUS');
-
-					foreach($stsItems as $item) {
-	
-						$items_array[] = array(
-							$item->st_number,
-							$item->received_st_number,
-							$item->pullout_reason,
-							$item->digits_code,	
-							'="'.$item->upc_code.'"',			
-							$item->item_description,	
-							$item->source,
-							$item->destination,
-							(empty($item->serial_number)) ? $item->sts_quantity : 1,
-							$item->serial_number,
-							$item->transport_by,
-							(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
-							$item->created_date,
-							$item->received_date,
-							$item->status
-						);
-					}
 					
 					$sheet->fromArray($items_array, null, 'A1', false, false);
 					$sheet->prependRow(1, $headings);
