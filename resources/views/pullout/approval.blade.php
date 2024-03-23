@@ -136,6 +136,8 @@ table.table.table-bordered th {
                                         <td class="text-center">{{$item['digits_code']}} <input type="hidden" name="digits_code[]" value="{{ $item['digits_code'] }}"></td>
                                         @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
                                             <td class="text-center">{{$item['upc_code']}} <input type="hidden" name="bea_item[]" value="{{ $item['bea_item_id'] }}"></td>
+                                        @else
+                                            <input type="hidden" name="bea_item[]" value="{{ $item['bea_item_id'] }}">
                                         @endif
                                         <td class="text-center">{{$item['item_description']}}<input type="hidden" name="price[]" value="{{ $item['price'] }}"/>
                                         </td>

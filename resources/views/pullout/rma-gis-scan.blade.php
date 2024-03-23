@@ -456,11 +456,11 @@ $(document).ready(function() {
                 return false;
             }
             
-            if(sku_count >= 1 && !p_reason.includes("RECALL")){
-                $("#item_scan_limit").modal();
-                $('#item_search').prop("disabled", true);
-                $('#item_search').val('');
-            }
+            // if(sku_count >= 1 && !p_reason.includes("RECALL")){
+            //     $("#item_scan_limit").modal();
+            //     $('#item_search').prop("disabled", true);
+            //     $('#item_search').val('');
+            // }
             
             if(current_qty === undefined){
                 current_qty = 1;
@@ -495,10 +495,8 @@ $(document).ready(function() {
                             var checkNumber = true;
                         }
 
-                        $.playSound(ASSET_URL+'sounds/success.ogg');
-
                         if (!in_array(data.items.digits_code, stack) && checkNumber) {
-
+                            $.playSound(ASSET_URL+'sounds/success.ogg');
                             stack.push(data.items.digits_code);
                         
                             var new_row = '<tr class="nr" id="rowid' + data.items.digits_code + '">' +
@@ -780,11 +778,11 @@ $(document).ready(function() {
             }
         });
 
-        if(sku_count > 1 && !p_reason.includes("RECALL")){
-            $("#item_scan_limit").modal();
-            $('#btnSubmit').removeAttr("disabled");
-            return false;
-        }
+        // if(sku_count > 1 && !p_reason.includes("RECALL")){
+        //     $("#item_scan_limit").modal();
+        //     $('#btnSubmit').removeAttr("disabled");
+        //     return false;
+        // }
 
         if(error_cnt > 0){
             swal('Warning!','Please input problem details per item!');

@@ -423,7 +423,7 @@
 
 			$items = DB::table('pullout')
 				->where('st_document_number',$st_number)
-				->select('id','item_code','quantity','item_description')
+				->select('id','item_code','quantity','item_description','request_type')
 				->get();
 
 			$data['stQuantity'] =  DB::table('pullout')
@@ -431,10 +431,14 @@
 				->sum('quantity');
 
 			foreach ($items as $key => $value) {
-
+			
 				$serials = Serials::where('pullout_id',$value->id)->select('serial_number')->get();
-				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
-
+				if(!$value->request_type){
+					$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
+				}else{
+					$item_detail = DB::table('items')->where('upc_code', $value->item_code)->first();
+				}
+				
 				$serial_data = array();
 				foreach ($serials as $serial) {
 					array_push($serial_data, $serial->serial_number);
@@ -454,7 +458,7 @@
 			$data['items'] = $item_data;
 			
 			$data['action_url'] = route('saveReviewPullout');
-			phpinfo();
+
 			$this->cbView("pullout.approval", $data);
 			
 		}
@@ -677,7 +681,7 @@
 		
 					//get sublocation
 					$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-					->where('location_id',$location->id)->where('description','DEFECTIVE')->first();
+					->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
 					//get sub location in transit
 					$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 					->where('location_id',$location->id)->where('description','IN TRANSIT')->first();

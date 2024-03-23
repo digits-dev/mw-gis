@@ -277,7 +277,9 @@
 				}
 				else{
 					$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status','pos_pull.created_date')
-					->where('pos_pull.stores_id',$store->id)->distinct();
+					->where('pos_pull.stores_id',$store->id)
+					->orderByRaw('FIELD(pos_pull.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
+					->distinct();
 				}
 				
 			}
@@ -1155,7 +1157,7 @@
 			}else{
 				$items = DB::table('pos_pull')->where('st_document_number',$st_number)->get();
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-				->where('location_id',$isGisSt->location_id_from)->where('description','IN TRANSIT')->first();
+				->where('location_id',$isGisSt->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 				//UPDATE STATUS HEADER
 				DB::table('pos_pull')->where('st_document_number',$st_number)->update([
 					'status' => 'VOID',
@@ -1163,6 +1165,7 @@
 				]);
 				//ADD QTY IN GIS INVENTORY LINES TO FROM LOCATION
 				foreach($items as $key => $item){
+					//REVERT TO INVETORY CAPSULE
 					DB::connection('gis')->table('inventory_capsules')
 					->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
 					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
@@ -1175,12 +1178,27 @@
 						'qty' => DB::raw("qty + $item->quantity"),
 						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 					]);
+
+					//REMOVE IN INTRANSIT
+					DB::connection('gis')->table('inventory_capsules')
+					->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+					->where([
+						'items.digits_code' => $item->item_code,
+						'inventory_capsules.locations_id' => $item->location_id_from
+					])
+					->where('inventory_capsule_lines.sub_locations_id',$from_intransit_gis_sub_location->id)
+					->update([
+						'inventory_capsule_lines.qty' => DB::raw("inventory_capsule_lines.qty - $item->quantity"),
+						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+					]);
+
 					//ADD GIS MOVEMENT HISTORY
 					//get item code
 					$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
 					$item_code = DB::connection('gis')->table('items')->where('digits_code',$item->item_code)->first();
 					$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
-					->where('description','VOID')->first();
+					->where('description','ST-REVERSAL')->first();
 					DB::connection('gis')->table('history_capsules')->insert([
 						'reference_number' => $st_number,
 						'item_code' => $item_code->digits_code2,
@@ -1204,7 +1222,7 @@
 						'created_by' => $gis_mw_name->id
 					]);
 				}
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
+				CRUDBooster::redirect(CRUDBooster::mainpath(), $st_number.' has been reverse successfully!','success')->send();
 			}
 			
 		}

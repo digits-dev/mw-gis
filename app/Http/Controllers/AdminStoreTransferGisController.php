@@ -11,6 +11,8 @@
 	use App\GisPull;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
+	use App\CodeCounter;
+	
 	class AdminStoreTransferGisController extends \crocodicstudio\crudbooster\controllers\CBController {
 		private const Pending = 'PENDING';
 		private const Void    = 'VOID';
@@ -485,24 +487,11 @@
 			$to_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 			->where('location_id',$to_gis_location->id)->where('description','STOCK ROOM')->first();
 			$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-			->where('location_id',$request->location_id_from)->where('description','IN TRANSIT')->first();
+			->where('location_id',$request->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 			if(!$to_gis_location){
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Location in GIS not match!','danger')->send();
+				CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'),'Failed! Location in GIS not match!','danger')->send();
 			}
 			foreach ($request->digits_code as $key => $val) {
-				$isToLocationExist = DB::connection('gis')->table('inventory_capsules')
-				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
-				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
-				->where([
-					'items.digits_code' => $val,
-					'inventory_capsules.locations_id' => $to_gis_location->id
-				])
-				->where('inventory_capsule_lines.sub_locations_id',$to_gis_sub_location->id)
-				->exists();
-				if(!$isToLocationExist){
-					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Jan Code not exist in location to transfer!','danger')->send();
-				}
-
 				$isQtyExceed = DB::connection('gis')->table('inventory_capsules')
 				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
 				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
@@ -514,41 +503,21 @@
 				->where('inventory_capsule_lines.qty','<',str_replace(',', '',$request->st_quantity[$key]))
 				->exists();
 				if($isQtyExceed){
-					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Quantity must be equal or less than in GIS Inventory!','danger')->send();
+					CRUDBooster::redirect(CRUDBooster::adminpath('store_transfers'),'Failed! Quantity must be equal or less than in GIS Inventory!','danger')->send();
 				}
 			}
 	
-			// //CREATE HEADER
-			$count_header = DB::table('pos_pull')->count();
-			$header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			
-			$st_ref_no	  = "ST-".$header_ref;
+			//CREATE HEADER
+			$code_counter = CodeCounter::where('id', 2)->value('pullout_refcode');
+			$st_ref_no = 'STS-'.str_pad($code_counter, 7, '0', STR_PAD_LEFT);
+			if(empty($st_ref_no)){
+				//back to old form
+				CRUDBooster::redirect(CRUDBooster::adminpath('store_pullout'),'Failed! No STS has been created.','danger')->send();
+			}
+			// $count_header = DB::table('pos_pull')->count();
+			// $header_ref   = str_pad($count_header + 1, 7, '0', STR_PAD_LEFT);			
+			// $st_ref_no	  = "ST-".$header_ref;
 
-			// $getLastId = GisPull::Create(
-			// 	[
-			// 		'ref_number'             => $st_ref_no,
-			// 		'status_id'              => self::Pending,
-			// 		'quantity_total'         => $request->total_quantity,
-			// 		'memo'                   => $request->memo,
-			// 		'stores_id'              => (int)(implode("",CRUDBooster::myStore())),
-			// 		'location_id_from'       => $request->location_id_from,
-			// 		'sub_location_id_from'   => $request->sub_location_id_from,
-			// 		'location_from'          => $request->transfer_from,
-			// 		'stores_id_destination'  => $request->stores_id_destination,
-			// 		'location_id_to'         => $to_gis_location->id,
-			// 		'sub_location_id_to'     => $to_gis_sub_location->id,
-			// 		'location_to'            => $request->transfer_to,
-			// 		'transport_types_id'     => $request->transport_type,
-			// 		'reason_id'              => $request->reason, 
-			// 		'transfer_date'          => $request->transfer_date,
-			// 		'hand_carrier'           => $request->hand_carrier,
-			// 		'created_date'           => date('Y-m-d'),
-			// 		'created_at'             => date('Y-m-d H:i:s')
-			// 	]
-			// );     
-
-			// $id = $getLastId->id;
-			// $st_header = DB::table('gis_pulls')->where('id',$id)->first();
-			
 			foreach ($request->digits_code as $key_item => $value_item) {
 				$st_qty = str_replace(',', '',$request->st_quantity[$key_item]); 
 				//INSERT IN MW GIS PULL TABLE
@@ -574,7 +543,24 @@
 					'created_date'           => date('Y-m-d'),
 					'created_at'             => date('Y-m-d H:i:s')
 				];
-				
+
+				//ADD GIS MOVEMENT HISTORY
+				//get item code
+				$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
+				$item_code = DB::connection('gis')->table('items')->where('digits_code',$value_item)->first();
+				$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+				->where('description','STOCK TRANSFER')->first();
+
+				$isToLocationExist = DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $value_item,
+					'inventory_capsules.locations_id' => $to_gis_location->id
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$to_gis_sub_location->id)
+				->exists();
+			
 				//UPDATE IN GIS INVENTORY LINES
 				DB::connection('gis')->table('inventory_capsules')
 				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
@@ -588,13 +574,42 @@
 					'qty' => DB::raw("qty - $st_qty"),
 					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 				]);
+				
+				//UPDATE OR INSERT INTRANSIT
+				$isIntransitExist = DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $value_item,
+					'inventory_capsules.locations_id' => $request->location_id_from
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$from_intransit_gis_sub_location->id)
+				->exists();
 
-				//ADD GIS MOVEMENT HISTORY
-				//get item code
-				$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
-				$item_code = DB::connection('gis')->table('items')->where('digits_code',$value_item)->first();
-				$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
-				->where('description','STOCK TRANSFER')->first();
+				//HEADER IC
+				$existingcapsuleHeaderId = DB::connection('gis')->table('inventory_capsules')->where([
+					'item_code' => $item_code->digits_code2,
+					'locations_id' => $request->location_id_from
+				])->first();
+
+				if($isIntransitExist){
+					DB::connection('gis')->table('inventory_capsule_lines')->where([
+						'inventory_capsules_id' => $existingcapsuleHeaderId->id,
+						'sub_locations_id' => $from_intransit_gis_sub_location->id
+					])->update([
+						'qty' => DB::raw("qty + $st_qty"),
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+				}else{
+					DB::connection('gis')->table('inventory_capsule_lines')->insert([
+						'inventory_capsules_id' => $existingcapsuleHeaderId->id,
+						'sub_locations_id' => $from_intransit_gis_sub_location->id,
+						'qty' => $st_qty,
+						'created_at' => date('Y-m-d H:i:s')
+					]);
+		
+				}
+				
 				DB::connection('gis')->table('history_capsules')->insert([
 					'reference_number' => $st_ref_no,
 					'item_code' => $item_code->digits_code2,
@@ -621,6 +636,8 @@
 				//INSERT IN MW GIS PULL LINES
 				$record = DB::table('pos_pull')->insert($stDetails);
 			}
+
+			DB::table('code_counter')->where('id', 2)->increment('pullout_refcode');
 
 			if($record){
 				CRUDBooster::insertLog(trans("crudbooster.sts_created", ['ref_number' =>$st_ref_no]));
