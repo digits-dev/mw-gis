@@ -42,6 +42,35 @@ input[type=number]::-webkit-outer-spin-button {
   margin: 0; 
 }
 
+/* loading spinner */
+.loading {
+    z-index: 20;
+    position: absolute;
+    top: 0;
+    bottom:0;
+    left:0;
+    width: 100%;
+    height: 1500px;
+    background-color: rgba(0,0,0,0.4);
+}
+.loading-content {
+    position: absolute;
+    border: 16px solid #f3f3f3; /* Light grey */
+    border-top: 16px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    top: 20%;
+    left:50%;
+    bottom:0;
+    animation: spin 2s linear infinite;
+}
+    
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 </style>
 @endpush
 
@@ -62,7 +91,9 @@ input[type=number]::-webkit-outer-spin-button {
         </div>
 
         <div class="panel-body">
-
+            <section id="loading">
+                <div id="loading-content"></div>
+            </section>
             <form action="{{ route('saveCreateRMAGisMw') }}" method="POST" id="str_create" autocomplete="off" role="form" enctype="multipart/form-data">
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
             <input type="hidden" name="stores_id" id="stores_id" value="" > 
@@ -164,7 +195,7 @@ input[type=number]::-webkit-outer-spin-button {
                         <table class="table table-bordered noselect" id="st_items">
                             <thead>
                                 <tr style="background: #0047ab; color: white">
-                                    <th width="15%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    <th width="15%" class="text-center">Jan Code</th>
                                     <th width="25%" class="text-center">{{ trans('message.table.item_description') }}</th>
                                     <th width="5%" class="text-center">{{ trans('message.table.st_quantity') }}</th>
                                     <th width="25%" class="text-center">{{ trans('message.table.problems') }}</th>
@@ -468,6 +499,7 @@ $(document).ready(function() {
             else{
                 current_qty++;
             }
+            showLoading();
             $.ajax({
                 url: "{{ route('scanGisMwPulloutItem') }}",
                 cache: true,
@@ -483,7 +515,7 @@ $(document).ready(function() {
                 success: function (data) {
                     
                     if (data.status_no == 1) {
-
+                        hideLoading();
                         digits_code = data.items.digits_code;   
                         has_serial = data.items.has_serial;
                         var start_dc = digits_code.substring(0, 1); //7
@@ -539,6 +571,7 @@ $(document).ready(function() {
                             });
                             validateInput();
                         }else{
+                            hideLoading();
                             if(checkNumber){
                                 $("#exist_scan_error").modal();
                                 $.playSound(ASSET_URL+'sounds/error.ogg');
@@ -558,6 +591,7 @@ $(document).ready(function() {
                         window.localStorage.setItem(digits_code, $('#qty_'+digits_code).val());
 
                     }else {
+                        hideLoading();
                         $('#item_search').val('');
                         $("#item_scan_error").modal();
                         $.playSound(ASSET_URL+'sounds/error.ogg');

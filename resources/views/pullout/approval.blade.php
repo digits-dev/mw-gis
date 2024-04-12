@@ -119,7 +119,11 @@ table.table.table-bordered th {
                         <table class="table table-bordered noselect" id="st-items">
                             <thead>
                                 <tr style="background: #0047ab; color: white">
-                                    <th width="10%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
+                                        <th width="10%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    @else
+                                        <th width="15%" class="text-center">Jan Code</th>
+                                    @endif
                                     @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
                                         <th width="15%" class="text-center">{{ trans('message.table.upc_code') }}</th>
                                     @endif
