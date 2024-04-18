@@ -99,7 +99,7 @@
                 $this->button_selected[] = ['label'=>'Re-run ST Creation', 'icon'=>'fa fa-refresh', 'name'=>'rerun_st_creation'];
                 $this->button_selected[] = ['label'=>'Re-run ST Receiving', 'icon'=>'fa fa-refresh', 'name'=>'rerun_st_receiving'];
                 $this->button_selected[] = ['label'=>'Re-run Stock Out', 'icon'=>'fa fa-refresh', 'name'=>'rerun_stock_out'];
-                
+                $this->button_selected[] = ['label'=>'Push MOR', 'icon'=>'fa fa-files-o', 'name'=>'push_mor'];
             }
 	                
 	        /* 
@@ -425,7 +425,23 @@
     				}
 			    }
 			}
-			
+			elseif($button_name == 'push_mor'){
+				$pulloutDetails = DB::table('pullout')->whereIn('id', $id_selected)->get();
+				$store = DB::table('stores')->where('pos_warehouse',$pulloutDetails[0]->wh_from)->first();
+			    foreach($pulloutDetails as $key => $value){
+					$item = DB::table('items')->where('digits_code',$value->item_code)->first();
+					$reason = DB::table('reason')->where('id',$value->reason_id)->first();
+					app(EBSPushController::class)->createMOR(
+						$item->bea_item_id, 
+						$store->doo_subinventory, 
+						($value->quantity)*(-1), 
+						$store->org_subinventory, 
+						$value->st_document_number, 
+						224, 
+						$reason->bea_mo_reason, 
+						223);
+				}
+			}
 	    }
 
 
