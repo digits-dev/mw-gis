@@ -487,14 +487,14 @@
 			
 			if(CRUDBooster::myChannel() ==1){ //retail
 				$data['reasons'] = DB::table('reason')
-				->select('bea_mo_reason as bea_reason','pullout_reason')
+				->select('bea_mo_reason as bea_reason','pullout_reason','allow_multi_items')
 				->where('transaction_type_id',2) //rma
 				->where('status','ACTIVE')
 				->get();
 			}
 			else{
 				$data['reasons'] = DB::table('reason')
-				->select('bea_so_reason as bea_reason','pullout_reason')
+				->select('bea_so_reason as bea_reason','pullout_reason','allow_multi_items')
 				->where('transaction_type_id',2) //rma
 				->where('status','ACTIVE')
 				->get();

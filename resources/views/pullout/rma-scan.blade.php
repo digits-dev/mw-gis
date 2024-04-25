@@ -146,7 +146,7 @@ input[type=number]::-webkit-outer-spin-button {
                     <select class="form-control select2" style="width: 100%;" required name="reason" id="reason">
                         <option value="">Please select a reason</option>
                         @foreach ($reasons as $data)
-                            <option value="{{$data->bea_reason}}">{{$data->pullout_reason}}</option>
+                            <option value="{{$data->bea_reason}}" data-multiple-items="{{ $data->allow_multi_items }}">{{$data->pullout_reason}}</option>
                         @endforeach
                     </select>
                 </div>
@@ -477,13 +477,14 @@ $(document).ready(function() {
             // console.log(localStorage.getItem($(this).val()));
             var p_reason = $('#reason option:selected').text();
             var v_reason = $('#reason option:selected').val();
+            var multi_items = $('#reason option:selected').attr('data-multiple-items');
 
             if(v_reason == ''){
                 $("#reason_error").modal();
                 return false;
             }
             
-            if(sku_count >= 1 && !p_reason.includes("RECALL")){
+            if(sku_count >= 1 && multi_items == 0){
                 $("#item_scan_limit").modal();
                 $('#item_search').prop("disabled", true);
                 $('#item_search').val('');

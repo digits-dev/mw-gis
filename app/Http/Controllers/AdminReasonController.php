@@ -34,6 +34,7 @@
 			$this->col[] = ["label"=>"BEA SO Reason","name"=>"bea_so_reason"];
 			$this->col[] = ["label"=>"BEA MO Reason","name"=>"bea_mo_reason"];
 			$this->col[] = ["label"=>"Pullout Reason","name"=>"pullout_reason"];
+			$this->col[] = ["label"=>"Allow Multiple Items","name"=>"allow_multi_items"];
 			$this->col[] = ["label"=>"Status","name"=>"status"];
 			$this->col[] = ["label"=>"Created By","name"=>"created_by","join"=>"cms_users,name"];
 			$this->col[] = ["label"=>"Created Date","name"=>"created_at"];
@@ -47,6 +48,7 @@
 			$this->form[] = ['label'=>'BEA SO Reason','name'=>'bea_so_reason','type'=>'text','validation'=>'max:50','width'=>'col-sm-5'];
 			$this->form[] = ['label'=>'BEA MO Reason','name'=>'bea_mo_reason','type'=>'text','validation'=>'max:50','width'=>'col-sm-5'];
 			$this->form[] = ['label'=>'Pullout Reason','name'=>'pullout_reason','type'=>'text','validation'=>'required|min:1|max:50','width'=>'col-sm-5'];
+			$this->form[] = ['label'=>'Allow Multiple Items','name'=>'allow_multi_items','type'=>'radio','validation'=>'required','width'=>'col-sm-5','dataenum'=>'0|No;1|Yes'];
 			if(CRUDBooster::getCurrentMethod() == 'getEdit' || CRUDBooster::getCurrentMethod() == 'postEditSave' || CRUDBooster::getCurrentMethod() == 'getDetail') {
 				$this->form[] = ['label'=>'Status','name'=>'status','type'=>'select','validation'=>'required','width'=>'col-sm-5','dataenum'=>'ACTIVE;INACTIVE'];
 			}# END FORM DO NOT REMOVE THIS LINE
