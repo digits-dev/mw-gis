@@ -851,101 +851,102 @@ class AdminTripTicketsController extends \crocodicstudio\crudbooster\controllers
     public function exportTripTicket(Request $request)
 	{
 		ini_set('max_execution_time',10000);
-		Excel::create('Export Trip Ticket - '.date("Ymd H:i:sa"), function($excel) {
-			$excel->sheet('trips', function($sheet) {
+
+		$trip_tickets = TripTicket::select('trip_tickets.*','backload_reasons.backload_reason','trip_ticket_statuses.trip_status','stores.pos_warehouse_name as route_name')
+			->join('stores','trip_tickets.stores_id','=','stores.id')
+			->join('trip_ticket_statuses','trip_tickets.trip_ticket_statuses_id','=','trip_ticket_statuses.id')
+			->leftJoin('backload_reasons','trip_tickets.backload_reasons_id','=','backload_reasons.id');
+			
+		if(\Request::get('filter_column')) {
+
+			$filter_column = \Request::get('filter_column');
+
+			$trip_tickets->where(function($w) use ($filter_column,$fc) {
+				foreach($filter_column as $key=>$fc) {
+
+					$value = @$fc['value'];
+					$type  = @$fc['type'];
+
+					if($type == 'empty') {
+						$w->whereNull($key)->orWhere($key,'');
+						continue;
+					}
+
+					if($value=='' || $type=='') continue;
+
+					if($type == 'between') continue;
+
+					switch($type) {
+						default:
+							if($key && $type && $value) $w->where($key,$type,$value);
+						break;
+						case 'like':
+						case 'not like':
+							$value = '%'.$value.'%';
+							if($key && $type && $value) $w->where($key,$type,$value);
+						break;
+						case 'in':
+						case 'not in':
+							if($value) {
+								$value = explode(',',$value);
+								if($key && $value) $w->whereIn($key,$value);
+							}
+						break;
+					}
+				}
+			});
+
+			foreach($filter_column as $key=>$fc) {
+				$value = @$fc['value'];
+				$type  = @$fc['type'];
+				$sorting = @$fc['sorting'];
+
+				if($sorting!='') {
+					if($key) {
+						$trip_tickets->orderby($key,$sorting);
+						$filter_is_orderby = true;
+					}
+				}
+
+				if ($type=='between') {
+					if($key && $value) $trip_tickets->whereBetween($key,$value);
+				}
+
+				else {
+					continue;
+				}
+			}
+		}
+		if (!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
+			$trip_tickets->whereIn('stores_id',CRUDBooster::myStore());
+		}
+		$trip_tickets->orderBy('trip_tickets.trip_number', 'asc');
+		$tripItems = $trip_tickets->get();
+		
+		$headings = array(
+			'TRIP NUMBER',
+			'REF #',
+			'REF TYPE',
+			'TRIP TYPE',
+			'STORE',
+			'QTY',
+			'PLASTIC QTY',
+			'BOX QTY',
+			'RELEASED DATE',
+			'RECEIVED DATE',
+			'BACKLOAD REASON',
+			'LOGISTICS PERSONNEL',
+			'STORE PERSONNEL',
+			'STATUS',
+			'CREATED DATE');
+
+		Excel::create('Export Trip Ticket - '.date("Ymd H:i:sa"), function($excel) use ($tripItems,$headings) {
+			$excel->sheet('trips', function($sheet) use ($tripItems,$headings) {
 				// Set auto size for sheet
 				$sheet->setAutoSIZE(true);
 				$sheet->setColumnFormat(array(
 				// 	'D' => '@',
 				));
-                ini_set('memory_limit', '-1');
-                $trip_tickets = TripTicket::select('trip_tickets.*','backload_reasons.backload_reason','trip_ticket_statuses.trip_status','stores.pos_warehouse_name as route_name')
-                ->join('stores','trip_tickets.stores_id','=','stores.id')
-                ->join('trip_ticket_statuses','trip_tickets.trip_ticket_statuses_id','=','trip_ticket_statuses.id')
-                ->leftJoin('backload_reasons','trip_tickets.backload_reasons_id','=','backload_reasons.id');
-				
-				if(\Request::get('filter_column')) {
-
-					$filter_column = \Request::get('filter_column');
-
-					$trip_tickets->where(function($w) use ($filter_column,$fc) {
-						foreach($filter_column as $key=>$fc) {
-
-							$value = @$fc['value'];
-							$type  = @$fc['type'];
-
-							if($type == 'empty') {
-								$w->whereNull($key)->orWhere($key,'');
-								continue;
-							}
-
-							if($value=='' || $type=='') continue;
-
-							if($type == 'between') continue;
-
-							switch($type) {
-								default:
-									if($key && $type && $value) $w->where($key,$type,$value);
-								break;
-								case 'like':
-								case 'not like':
-									$value = '%'.$value.'%';
-									if($key && $type && $value) $w->where($key,$type,$value);
-								break;
-								case 'in':
-								case 'not in':
-									if($value) {
-										$value = explode(',',$value);
-										if($key && $value) $w->whereIn($key,$value);
-									}
-								break;
-							}
-						}
-					});
-
-					foreach($filter_column as $key=>$fc) {
-						$value = @$fc['value'];
-						$type  = @$fc['type'];
-						$sorting = @$fc['sorting'];
-
-						if($sorting!='') {
-							if($key) {
-								$trip_tickets->orderby($key,$sorting);
-								$filter_is_orderby = true;
-							}
-						}
-
-						if ($type=='between') {
-							if($key && $value) $trip_tickets->whereBetween($key,$value);
-						}
-
-						else {
-							continue;
-						}
-					}
-				}
-			    if (!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-					$trip_tickets->whereIn('stores_id',CRUDBooster::myStore());
-			    }
-				$trip_tickets->orderBy('trip_tickets.trip_number', 'asc');
-				$tripItems = $trip_tickets->get();
-				
-				$headings = array(
-					'TRIP NUMBER',
-					'REF #',
-					'REF TYPE',
-					'TRIP TYPE',
-					'STORE',
-					'QTY',
-					'PLASTIC QTY',
-					'BOX QTY',
-					'RELEASED DATE',
-					'RECEIVED DATE',
-					'BACKLOAD REASON',
-					'LOGISTICS PERSONNEL',
-					'STORE PERSONNEL',
-					'STATUS',
-					'CREATED DATE');
 
 				foreach($tripItems as $item) {
 
