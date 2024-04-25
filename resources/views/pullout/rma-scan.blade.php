@@ -827,6 +827,7 @@ $(document).ready(function() {
         var pullout_date = $("#pullout_date").val().length;
         var trans_handcarry = 0, prob_detail = 0, problem = 0, error_cnt = 0, error_cnt1 = 0;
         var p_reason = $('#reason option:selected').text();
+        var multi_items = $('#reason option:selected').attr('data-multiple-items');
 
         if(trans_type == 2) {
             trans_handcarry = $("#hand_carrier").val().length;
@@ -847,7 +848,7 @@ $(document).ready(function() {
             }
         });
 
-        if(sku_count > 1 && !p_reason.includes("RECALL")){
+        if(sku_count > 1 && multi_items == 0){
             $("#item_scan_limit").modal();
             $('#btnSubmit').removeAttr("disabled");
             return false;
