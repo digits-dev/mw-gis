@@ -16,9 +16,9 @@ use App\Delivery;
 Route::get('/', function () {
     return redirect('admin/login');
 });
-// Route::get('/php-info', function () {
-//     return phpinfo();
-// });
+Route::get('/php-info', function () {
+    return phpinfo();
+});
 
 Route::get('/admin/get_pending_dr/{store_id}','TripTicketController@getPendingDrByStore');
 Route::get('/admin/get_pending_sts/{store_id}','TripTicketController@getPendingSTSByStore');
@@ -122,6 +122,7 @@ Route::post('/admin/bea_transactions/sales_order_pull/with-time','EBSPullControl
 Route::get('/admin/bea_transactions/move_order_pull/{datefrom}/{dateto}','EBSPullController@moveOrderPullManual')->name('ebspull.runMoveOrderPull');
 Route::get('/admin/bea_transactions/move_order_pull_onl/{datefrom}/{dateto}','EBSPullController@moveOrderPullOnlManual')->name('ebspull.runMoveOrderPullOnl');
 Route::get('/admin/bea_transactions/move_order_pull','AdminBeaTransactionsController@getMoveOrder')->name('ebspull.getMoveOrderPull');
+Route::get('/admin/bea_transactions/move_order_pull_rma/{datefrom}/{dateto}','EBSPullController@moveOrderPullRmaManual')->name('ebspull.runMoveOrderPullRma');
 
 //Receiving
 Route::get('/admin/delivery_receiving/{dr_number}','AdminDeliveryReceivingController@getReceiving')->name('dr.receiving');

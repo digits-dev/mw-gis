@@ -717,11 +717,11 @@ class EBSPullController extends Controller
     
     public function moveOrderPullRma()
     {
-        // $datefrom = date("Y-m-d H:i:s", strtotime("-5 hour"));
-        // $dateto = date("Y-m-d H:i:s", strtotime("-1 hour"));
+        $datefrom = date("Y-m-d H:i:s", strtotime("-5 hour"));
+        $dateto = date("Y-m-d H:i:s", strtotime("-1 hour"));
         
-        $datefrom = '2024-01-10 00:00:00';
-        $dateto = '2024-01-10 23:23:23';
+        // $datefrom = '2024-01-10 00:00:00';
+        // $dateto = '2024-01-10 23:23:23';
 
         $request_numbers = array();
 
@@ -729,6 +729,113 @@ class EBSPullController extends Controller
             ->join('MTL_TXN_REQUEST_HEADERS','MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID','=','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER')
             ->select('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID as SHIPMENT_NUMBER')
             ->whereBetween('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_DATE', [$datefrom, $dateto])
+            ->where('MTL_MATERIAL_TRANSACTIONS.ORGANIZATION_ID', 225)
+            ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 225)
+            ->where('MTL_MATERIAL_TRANSACTIONS.SUBINVENTORY_CODE', 'STAGINGMO')
+            ->where('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_TYPE_ID', 64)
+            ->distinct()->get();
+            
+        foreach ($shipment_numbers as $key => $value) {
+            array_push($request_numbers, $value->shipment_number);
+        }
+
+        $data['move_order'] = DB::connection('oracle')->table('MTL_TXN_REQUEST_HEADERS')
+            ->join('MTL_TXN_REQUEST_LINES','MTL_TXN_REQUEST_HEADERS.HEADER_ID','=','MTL_TXN_REQUEST_LINES.HEADER_ID')
+            ->join('MTL_SYSTEM_ITEMS_B','MTL_TXN_REQUEST_LINES.INVENTORY_ITEM_ID','=','MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID')
+            ->join('MTL_ITEM_LOCATIONS','MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID','=','MTL_ITEM_LOCATIONS.INVENTORY_LOCATION_ID')
+            ->select(
+                'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as ORDER_NUMBER',
+                'MTL_TXN_REQUEST_LINES.LINE_NUMBER',
+                'MTL_SYSTEM_ITEMS_B.SEGMENT1 as ORDERED_ITEM',
+                'MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID as ORDERED_ITEM_ID',
+                'MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED as SHIPPED_QUANTITY',
+                'MTL_ITEM_LOCATIONS.SEGMENT2 as CUSTOMER_NAME',
+                'MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID as LOCATOR_ID',
+                'MTL_TXN_REQUEST_HEADERS.DESCRIPTION as SHIPPING_INSTRUCTION', 
+                'MTL_TXN_REQUEST_LINES.REFERENCE as CUSTOMER_PO', 
+                'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as DR_NUMBER',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE12 as SERIAL1',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE13 as SERIAL2',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE14 as SERIAL3',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE15 as SERIAL4',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE4 as SERIAL5',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE5 as SERIAL6',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE6 as SERIAL7',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE7 as SERIAL8',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE8 as SERIAL9',
+                'MTL_TXN_REQUEST_LINES.ATTRIBUTE9 as SERIAL10'
+            )
+            ->where('MTL_TXN_REQUEST_HEADERS.MOVE_ORDER_TYPE', 1)
+            ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 225)
+            ->where('MTL_SYSTEM_ITEMS_B.ORGANIZATION_ID', 223)
+            ->whereNotNull('MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED')
+            ->where('MTL_TXN_REQUEST_LINES.LINE_STATUS','!=', '6')
+            ->whereIn('MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER', array_values($request_numbers))
+            ->where(function($query) {
+                $query->where(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), 'LIKE', 'RTL');
+            })
+            ->get();
+            
+        $record = false;
+        foreach ($data['move_order'] as $key => $value) {
+            $itemExists = DB::table('ebs_pull')->where('ordered_item',$value->ordered_item)->where('dr_number',$value->dr_number)->first();
+                
+            if(!empty($itemExists)){
+                DB::table('ebs_pull')->where('ordered_item',$value->ordered_item)
+                    ->where('dr_number',$value->dr_number)
+                    ->update([
+                        'serial1' => $value->serial1,
+                        'serial2' => $value->serial2,
+                        'serial3' => $value->serial3,
+                        'serial4' => $value->serial4,
+                        'serial5' => $value->serial5,
+                        'serial6' => $value->serial6,
+                        'serial7' => $value->serial7,
+                        'serial8' => $value->serial8,
+                        'serial9' => $value->serial9,
+                        'serial10' => $value->serial10
+                    ]);
+            }
+            else {
+                $store = DB::table('stores')
+                    ->where('bea_mo_store_name',$value->customer_name)
+                    ->where('status','ACTIVE')->first();
+                $ebs_pull_id = DB::table('ebs_pull')->insertGetId(array_merge((array)$value,['stores_id'=>$store->id,'transaction_type'=>'MO-RMA','status'=>'PROCESSING','created_at'=>date('Y-m-d H:i:s'),'data_pull_date'=>date('Y-m-d')]));
+                $getSerial = self::getSerialById($ebs_pull_id);
+                $serials = explode(",",$getSerial->serial);
+                foreach ($serials as $serial) {
+                    if($serial != ""){
+                        DB::table('serials')->insert([
+                            'ebs_pull_id' => $ebs_pull_id, 
+                            'serial_number' => $serial,
+                            'created_at' => date('Y-m-d H:i:s')
+                        ]);
+                    }
+                }
+                $customer_name = DB::table('stores')
+                    ->where('bea_mo_store_name', $value->customer_name)
+                    ->where('status','ACTIVE')
+                    ->select('doo_subinventory')->first();
+                //autocreate DOT 
+                app(EBSPushController::class)->createDOT($value->dr_number, $value->ordered_item_id, $value->shipped_quantity, $customer_name->doo_subinventory, $value->locator_id, 225);
+                $record = true;
+            }
+        }
+        if($record){
+            // app(EBSPushController::class)->processTransactionInterface();
+            \Log::info('Move Order Pull RMA - Done');
+        }
+    }
+
+    public function moveOrderPullRmaManual($datefrom, $dateto)
+    {
+
+        $request_numbers = array();
+
+        $shipment_numbers = DB::connection('oracle')->table('MTL_MATERIAL_TRANSACTIONS')
+            ->join('MTL_TXN_REQUEST_HEADERS','MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID','=','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER')
+            ->select('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID as SHIPMENT_NUMBER')
+            ->whereBetween('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_DATE', [$datefrom.' 00:00:00', $dateto.' 23:59:59'])
             ->where('MTL_MATERIAL_TRANSACTIONS.ORGANIZATION_ID', 225)
             ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 225)
             ->where('MTL_MATERIAL_TRANSACTIONS.SUBINVENTORY_CODE', 'STAGINGMO')
