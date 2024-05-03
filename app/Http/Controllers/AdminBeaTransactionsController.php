@@ -280,7 +280,7 @@
 			    foreach($drDetails as $key => $value){
 			        $customer_name = DB::table('stores')->where('bea_mo_store_name', $value->customer_name)->select('doo_subinventory','channel_id')->first();
 			        if($customer_name->channel_id == 4){
-			            app(EBSPushController::class)->createDET($value->dr_number, $value->ordered_item_id, $value->shipped_quantity, $customer_name->doo_subinventory, $value->locator_id);
+			            app(EBSPushController::class)->createDOT($value->dr_number, $value->ordered_item_id, $value->shipped_quantity, $customer_name->doo_subinventory, $value->locator_id,263);
 			        }
 			        else{
 			            app(EBSPushController::class)->createDOT($value->dr_number, $value->ordered_item_id, $value->shipped_quantity, $customer_name->doo_subinventory, $value->locator_id);
