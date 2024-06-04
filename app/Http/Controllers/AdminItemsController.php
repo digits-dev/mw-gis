@@ -4,6 +4,7 @@
 	use Request;
 	use DB;
 	use CRUDBooster;
+	use App\Http\Controllers\POSPushController;
 
 	class AdminItemsController extends \crocodicstudio\crudbooster\controllers\CBController {
 
@@ -119,6 +120,10 @@
 				$this->button_selected[] = ['label'=>'Set Item General',
 											'icon'=>'fa fa-check-circle-o',
 											'name'=>'set_item_general'];
+
+				$this->button_selected[] = ['label'=>'Create POS Item',
+											'icon'=>'fa fa-check-circle-o',
+											'name'=>'create_pos_item'];
 	        }
 	                
 	        /* 
@@ -259,7 +264,20 @@
             else if($button_name == 'set_item_general') {
             	DB::table('items')->whereIn('id',$id_selected)->update([ 'has_serial'=> 0 ]);
             	
-            }    
+            } 
+			else if($button_name == 'create_pos_item') {
+            	$items = DB::table('items')->whereIn('id',$id_selected)->get();
+            	foreach ($items as $key => $value) {
+					(new POSPushController)->posCreateItem(
+						$value->digits_code,
+						$value->upc_code,
+						$value->item_description,
+						$value->current_srp,
+						$value->store_cost,
+						$value->has_serial);
+				}
+            } 
+			
 	    }
 
 

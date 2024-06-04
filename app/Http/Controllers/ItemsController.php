@@ -281,7 +281,14 @@ class ItemsController extends Controller
         $check_sync = false;
 
         $process_id = rand(1,999);
-        // dd($response["data"]);
+        $data = [];
+        $org_template = [
+            223 => 4086,
+            224 => 4084,
+            225 => 4085,
+            263 => 8084,                        
+        ];
+
         if(!empty($response["data"])) {
             foreach ($response["data"] as $key => $value) {
                 $existingItem = app(EBSPullController::class)->getItemInterface($value['digits_code']);
@@ -290,10 +297,30 @@ class ItemsController extends Controller
                     DB::beginTransaction();
     
                     try {
-                        app(EBSPushController::class)->createBEAItem(223, $process_id, 4086, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
-                        app(EBSPushController::class)->createBEAItem(224, $process_id, 4084, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
-                        app(EBSPushController::class)->createBEAItem(225, $process_id, 4085, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
-                        app(EBSPushController::class)->createBEAItem(263, $process_id, 8084, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
+
+                        foreach ($org_template as $key_template => $value_template) {
+                            
+                            $data = [
+                                'organization_id' => $key_template,
+                                'process_id' => $process_id,
+                                'template_id' => $value_template,
+                                'digits_code' => $value['digits_code'],
+                                'upc_code' => $value['upc_code'],
+                                'supplier_item_code' => $value['supplier_item_code'],
+                                'item_description' => $value['item_description'],
+                                'brand' => $value['brand'],
+                                'warehouse_category' => $value['warehouse_category'],
+                                'current_srp' => $value['current_srp'],
+                                'purchase_price' => $value['purchase_price'],
+                                'has_serial' => $value['has_serial']
+                            ];
+
+                            (new EBSPushController)->createBEAItem($data);
+                        }
+                        // app(EBSPushController::class)->createBEAItem(223, $process_id, 4086, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
+                        // app(EBSPushController::class)->createBEAItem(224, $process_id, 4084, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
+                        // app(EBSPushController::class)->createBEAItem(225, $process_id, 4085, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
+                        // app(EBSPushController::class)->createBEAItem(263, $process_id, 8084, $value['digits_code'], $value['upc_code'], $value['supplier_item_code'], $value['item_description'], $value['brand'], $value['warehouse_category'], $value['current_srp'], $value['purchase_price'], $value['has_serial']);
                         DB::commit();
                     } catch (\Exception $e) {
                         \Log::debug($e);
