@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\OracleMaterialTransaction;
+use App\OracleTransactionHeader;
 use Illuminate\Http\Request;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Session;
 use CRUDbooster;
 use PDO;
@@ -608,61 +610,71 @@ class EBSPullController extends Controller
         $dateto = date("Y-m-d H:i:s", strtotime("-1 hour"));
 
         $request_numbers = array();
+        $shipment_numbers = OracleMaterialTransaction::getShipments($datefrom,$dateto,'DTO')->get();
 
-        $shipment_numbers = DB::connection('oracle')->table('MTL_MATERIAL_TRANSACTIONS')
-            ->join('MTL_TXN_REQUEST_HEADERS','MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID','=','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER')
-            ->select('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID as SHIPMENT_NUMBER')
-            ->whereBetween('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_DATE', [$datefrom, $dateto])
-            // ->whereBetween('MTL_TXN_REQUEST_HEADERS.CREATION_DATE', [$datefrom, $dateto])
-            ->where('MTL_MATERIAL_TRANSACTIONS.ORGANIZATION_ID', 224)
-            ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 224)
-            ->where('MTL_MATERIAL_TRANSACTIONS.SUBINVENTORY_CODE', 'STAGINGMO')
-            ->where('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_TYPE_ID', 64)
-            ->distinct()->get();
-        
+    /*
+        // $shipment_numbers = DB::connection('oracle')->table('MTL_MATERIAL_TRANSACTIONS')
+        //     ->join('MTL_TXN_REQUEST_HEADERS','MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID','=','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER')
+        //     ->select('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID as SHIPMENT_NUMBER')
+        //     ->whereBetween('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_DATE', [$datefrom, $dateto])
+        //     // ->whereBetween('MTL_TXN_REQUEST_HEADERS.CREATION_DATE', [$datefrom, $dateto])
+        //     ->where('MTL_MATERIAL_TRANSACTIONS.ORGANIZATION_ID', 224)
+        //     ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 224)
+        //     ->where('MTL_MATERIAL_TRANSACTIONS.SUBINVENTORY_CODE', 'STAGINGMO')
+        //     ->where('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_TYPE_ID', 64)
+        //     ->distinct()->get();
+    */    
+    
         foreach ($shipment_numbers as $key => $value) {
             array_push($request_numbers, $value->shipment_number);
         }
 
-        $data['move_order'] = DB::connection('oracle')->table('MTL_TXN_REQUEST_HEADERS')
-            ->join('MTL_TXN_REQUEST_LINES','MTL_TXN_REQUEST_HEADERS.HEADER_ID','=','MTL_TXN_REQUEST_LINES.HEADER_ID')
-            ->join('MTL_SYSTEM_ITEMS_B','MTL_TXN_REQUEST_LINES.INVENTORY_ITEM_ID','=','MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID')
-            //->join('RCV_SHIPMENT_HEADERS','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER','=','RCV_SHIPMENT_HEADERS.SHIPMENT_NUM') //removed 2020-12-03
-            ->join('MTL_ITEM_LOCATIONS','MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID','=','MTL_ITEM_LOCATIONS.INVENTORY_LOCATION_ID')
-            ->select(
-                'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as ORDER_NUMBER',
-                'MTL_TXN_REQUEST_LINES.LINE_NUMBER',
-                'MTL_SYSTEM_ITEMS_B.SEGMENT1 as ORDERED_ITEM',
-                'MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID as ORDERED_ITEM_ID',
-                'MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED as SHIPPED_QUANTITY',
-                'MTL_ITEM_LOCATIONS.SEGMENT2 as CUSTOMER_NAME',
-                'MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID as LOCATOR_ID',
-                //'RCV_SHIPMENT_HEADERS.SHIPPED_DATE as SHIP_CONFIRMED_DATE', //removed 2020-12-03
-                'MTL_TXN_REQUEST_HEADERS.DESCRIPTION as SHIPPING_INSTRUCTION', //added 2021-03-05
-                'MTL_TXN_REQUEST_LINES.REFERENCE as CUSTOMER_PO', //added 2022-05-02
-                'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as DR_NUMBER',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE12 as SERIAL1',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE13 as SERIAL2',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE14 as SERIAL3',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE15 as SERIAL4',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE4 as SERIAL5',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE5 as SERIAL6',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE6 as SERIAL7',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE7 as SERIAL8',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE8 as SERIAL9',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE9 as SERIAL10'
-            )
-            ->where('MTL_TXN_REQUEST_HEADERS.MOVE_ORDER_TYPE', 1)
-            ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 224)
-            ->where('MTL_SYSTEM_ITEMS_B.ORGANIZATION_ID', 223)
-            ->whereNotNull('MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED')
-            ->where('MTL_TXN_REQUEST_LINES.LINE_STATUS','!=', '6')
-            ->whereIn('MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER', array_values($request_numbers))
-            ->where(function($query) {
-                $query->where(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), '=', 'RTL')
-                ->orWhere(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), '=', 'FRA');
-            })
-            ->get();
+        $data['move_order'] = OracleTransactionHeader::getMoveOrders($request_numbers,'DTO')->where(function($query) {
+            $query->where(DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), '=', 'RTL')
+            ->orWhere(DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), '=', 'FRA');
+        })->get();
+
+        /*
+            $data['move_order'] = DB::connection('oracle')->table('MTL_TXN_REQUEST_HEADERS')
+                ->join('MTL_TXN_REQUEST_LINES','MTL_TXN_REQUEST_HEADERS.HEADER_ID','=','MTL_TXN_REQUEST_LINES.HEADER_ID')
+                ->join('MTL_SYSTEM_ITEMS_B','MTL_TXN_REQUEST_LINES.INVENTORY_ITEM_ID','=','MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID')
+                //->join('RCV_SHIPMENT_HEADERS','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER','=','RCV_SHIPMENT_HEADERS.SHIPMENT_NUM') //removed 2020-12-03
+                ->join('MTL_ITEM_LOCATIONS','MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID','=','MTL_ITEM_LOCATIONS.INVENTORY_LOCATION_ID')
+                ->select(
+                    'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as ORDER_NUMBER',
+                    'MTL_TXN_REQUEST_LINES.LINE_NUMBER',
+                    'MTL_SYSTEM_ITEMS_B.SEGMENT1 as ORDERED_ITEM',
+                    'MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID as ORDERED_ITEM_ID',
+                    'MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED as SHIPPED_QUANTITY',
+                    'MTL_ITEM_LOCATIONS.SEGMENT2 as CUSTOMER_NAME',
+                    'MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID as LOCATOR_ID',
+                    //'RCV_SHIPMENT_HEADERS.SHIPPED_DATE as SHIP_CONFIRMED_DATE', //removed 2020-12-03
+                    'MTL_TXN_REQUEST_HEADERS.DESCRIPTION as SHIPPING_INSTRUCTION', //added 2021-03-05
+                    'MTL_TXN_REQUEST_LINES.REFERENCE as CUSTOMER_PO', //added 2022-05-02
+                    'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as DR_NUMBER',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE12 as SERIAL1',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE13 as SERIAL2',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE14 as SERIAL3',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE15 as SERIAL4',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE4 as SERIAL5',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE5 as SERIAL6',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE6 as SERIAL7',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE7 as SERIAL8',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE8 as SERIAL9',
+                    'MTL_TXN_REQUEST_LINES.ATTRIBUTE9 as SERIAL10'
+                )
+                ->where('MTL_TXN_REQUEST_HEADERS.MOVE_ORDER_TYPE', 1)
+                ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 224)
+                ->where('MTL_SYSTEM_ITEMS_B.ORGANIZATION_ID', 223)
+                ->whereNotNull('MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED')
+                ->where('MTL_TXN_REQUEST_LINES.LINE_STATUS','!=', '6')
+                ->whereIn('MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER', array_values($request_numbers))
+                ->where(function($query) {
+                    $query->where(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), '=', 'RTL')
+                    ->orWhere(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), '=', 'FRA');
+                })
+                ->get();
+        */
         
         $record = false;
         foreach ($data['move_order'] as $key => $value) {
@@ -725,20 +737,28 @@ class EBSPullController extends Controller
 
         $request_numbers = array();
 
-        $shipment_numbers = DB::connection('oracle')->table('MTL_MATERIAL_TRANSACTIONS')
-            ->join('MTL_TXN_REQUEST_HEADERS','MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID','=','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER')
-            ->select('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID as SHIPMENT_NUMBER')
-            ->whereBetween('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_DATE', [$datefrom, $dateto])
-            ->where('MTL_MATERIAL_TRANSACTIONS.ORGANIZATION_ID', 225)
-            ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 225)
-            ->where('MTL_MATERIAL_TRANSACTIONS.SUBINVENTORY_CODE', 'STAGINGMO')
-            ->where('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_TYPE_ID', 64)
-            ->distinct()->get();
+        $shipment_numbers = OracleMaterialTransaction::getShipments($datefrom,$dateto,'RMA')->get();
+
+        // $shipment_numbers = DB::connection('oracle')->table('MTL_MATERIAL_TRANSACTIONS')
+        //     ->join('MTL_TXN_REQUEST_HEADERS','MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID','=','MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER')
+        //     ->select('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_SOURCE_ID as SHIPMENT_NUMBER')
+        //     ->whereBetween('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_DATE', [$datefrom, $dateto])
+        //     ->where('MTL_MATERIAL_TRANSACTIONS.ORGANIZATION_ID', 225)
+        //     ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 225)
+        //     ->where('MTL_MATERIAL_TRANSACTIONS.SUBINVENTORY_CODE', 'STAGINGMO')
+        //     ->where('MTL_MATERIAL_TRANSACTIONS.TRANSACTION_TYPE_ID', 64)
+        //     ->distinct()->get();
             
         foreach ($shipment_numbers as $key => $value) {
             array_push($request_numbers, $value->shipment_number);
         }
 
+        $data['move_order'] = OracleTransactionHeader::getMoveOrders($request_numbers,'RMA')->where(function($query) {
+            $query->where(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), 'LIKE', 'RTL');
+        })
+        ->get();
+
+    /*    
         $data['move_order'] = DB::connection('oracle')->table('MTL_TXN_REQUEST_HEADERS')
             ->join('MTL_TXN_REQUEST_LINES','MTL_TXN_REQUEST_HEADERS.HEADER_ID','=','MTL_TXN_REQUEST_LINES.HEADER_ID')
             ->join('MTL_SYSTEM_ITEMS_B','MTL_TXN_REQUEST_LINES.INVENTORY_ITEM_ID','=','MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID')
@@ -775,7 +795,7 @@ class EBSPullController extends Controller
                 $query->where(\DB::raw('substr(MTL_ITEM_LOCATIONS.SEGMENT2, -3)'), 'LIKE', 'RTL');
             })
             ->get();
-            
+    */        
         $record = false;
         foreach ($data['move_order'] as $key => $value) {
             $itemExists = DB::table('ebs_pull')->where('ordered_item',$value->ordered_item)->where('dr_number',$value->dr_number)->first();
@@ -1399,38 +1419,40 @@ class EBSPullController extends Controller
             array_push($request_numbers, $value->shipment_number);
         }
 
-        $data['move_order'] = DB::connection('oracle')->table('MTL_TXN_REQUEST_HEADERS')
-            ->join('MTL_TXN_REQUEST_LINES','MTL_TXN_REQUEST_HEADERS.HEADER_ID','=','MTL_TXN_REQUEST_LINES.HEADER_ID')
-            ->join('MTL_SYSTEM_ITEMS_B','MTL_TXN_REQUEST_LINES.INVENTORY_ITEM_ID','=','MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID')
-            ->join('MTL_ITEM_LOCATIONS','MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID','=','MTL_ITEM_LOCATIONS.INVENTORY_LOCATION_ID')
-            ->select(
-                'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as ORDER_NUMBER',
-                'MTL_TXN_REQUEST_LINES.LINE_NUMBER',
-                'MTL_SYSTEM_ITEMS_B.SEGMENT1 as ORDERED_ITEM',
-                'MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID as ORDERED_ITEM_ID',
-                'MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED as SHIPPED_QUANTITY',
-                'MTL_ITEM_LOCATIONS.SEGMENT2 as CUSTOMER_NAME',
-                'MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID as LOCATOR_ID',
-                'MTL_TXN_REQUEST_HEADERS.DESCRIPTION as SHIPPING_INSTRUCTION', //added 2021-03-05
-                'MTL_TXN_REQUEST_LINES.REFERENCE as CUSTOMER_PO', //added 2022-05-02
-                'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as DR_NUMBER',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE12 as SERIAL1',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE13 as SERIAL2',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE14 as SERIAL3',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE15 as SERIAL4',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE4 as SERIAL5',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE5 as SERIAL6',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE6 as SERIAL7',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE7 as SERIAL8',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE8 as SERIAL9',
-                'MTL_TXN_REQUEST_LINES.ATTRIBUTE9 as SERIAL10'
-            )
-            ->where('MTL_TXN_REQUEST_HEADERS.MOVE_ORDER_TYPE', 1)
-            ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 263) //deo org update in prod
-            ->where('MTL_SYSTEM_ITEMS_B.ORGANIZATION_ID', 223)
-            ->where('MTL_TXN_REQUEST_LINES.LINE_STATUS','!=', '6')
-            ->whereIn('MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER', array_values($request_numbers))
-            ->get();
+        $data['move_order'] = OracleTransactionHeader::getMoveOrders($request_numbers,'DEO')->get();
+
+        // $data['move_order'] = DB::connection('oracle')->table('MTL_TXN_REQUEST_HEADERS')
+        //     ->join('MTL_TXN_REQUEST_LINES','MTL_TXN_REQUEST_HEADERS.HEADER_ID','=','MTL_TXN_REQUEST_LINES.HEADER_ID')
+        //     ->join('MTL_SYSTEM_ITEMS_B','MTL_TXN_REQUEST_LINES.INVENTORY_ITEM_ID','=','MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID')
+        //     ->join('MTL_ITEM_LOCATIONS','MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID','=','MTL_ITEM_LOCATIONS.INVENTORY_LOCATION_ID')
+        //     ->select(
+        //         'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as ORDER_NUMBER',
+        //         'MTL_TXN_REQUEST_LINES.LINE_NUMBER',
+        //         'MTL_SYSTEM_ITEMS_B.SEGMENT1 as ORDERED_ITEM',
+        //         'MTL_SYSTEM_ITEMS_B.INVENTORY_ITEM_ID as ORDERED_ITEM_ID',
+        //         'MTL_TXN_REQUEST_LINES.QUANTITY_DELIVERED as SHIPPED_QUANTITY',
+        //         'MTL_ITEM_LOCATIONS.SEGMENT2 as CUSTOMER_NAME',
+        //         'MTL_TXN_REQUEST_LINES.TO_LOCATOR_ID as LOCATOR_ID',
+        //         'MTL_TXN_REQUEST_HEADERS.DESCRIPTION as SHIPPING_INSTRUCTION', //added 2021-03-05
+        //         'MTL_TXN_REQUEST_LINES.REFERENCE as CUSTOMER_PO', //added 2022-05-02
+        //         'MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER as DR_NUMBER',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE12 as SERIAL1',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE13 as SERIAL2',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE14 as SERIAL3',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE15 as SERIAL4',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE4 as SERIAL5',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE5 as SERIAL6',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE6 as SERIAL7',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE7 as SERIAL8',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE8 as SERIAL9',
+        //         'MTL_TXN_REQUEST_LINES.ATTRIBUTE9 as SERIAL10'
+        //     )
+        //     ->where('MTL_TXN_REQUEST_HEADERS.MOVE_ORDER_TYPE', 1)
+        //     ->where('MTL_TXN_REQUEST_HEADERS.ORGANIZATION_ID', 263) //deo org update in prod
+        //     ->where('MTL_SYSTEM_ITEMS_B.ORGANIZATION_ID', 223)
+        //     ->where('MTL_TXN_REQUEST_LINES.LINE_STATUS','!=', '6')
+        //     ->whereIn('MTL_TXN_REQUEST_HEADERS.REQUEST_NUMBER', array_values($request_numbers))
+        //     ->get();
         
         $record = false;
         foreach ($data['move_order'] as $key => $value) {
@@ -1717,7 +1739,7 @@ class EBSPullController extends Controller
 
     public function getDOTTransactions()
     {
-        $deliveries = DB::table('ebs_pull')->where('status','PROCESSING')->get();
+        $deliveries = DB::table('ebs_pull')->where('status','PROCESSING')->select('order_number')->distinct()->get();
         foreach ($deliveries as $delivery) {
             $dot = DB::connection('oracle')->table('RCV_SHIPMENT_HEADERS')->where('SHIPMENT_NUM', $delivery->order_number)->first();
             // \Log::alert($dot);

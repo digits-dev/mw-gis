@@ -1,6 +1,8 @@
 <?php namespace App\Http\Controllers;
 
-	use Session;
+use App\EBSPull;
+use App\StoreName;
+use Session;
 	use DB;
 	use CRUDBooster;
 	use Illuminate\Support\Facades\Input;
@@ -231,7 +233,6 @@
 	    public function hook_query_index(&$query) {
 			//Your code here
 			if(!CRUDBooster::isSuperadmin()){
-			 //   $store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 				$stores = DB::table('stores')->whereIn('id', CRUDBooster::myStore())->get();
 				$storeAccess = array();
 				foreach($stores as $store ){
@@ -240,15 +241,14 @@
 				}
 				$query->select('ebs_pull.dr_number','ebs_pull.customer_name','ebs_pull.status')
 					->where('ebs_pull.status','PENDING')
-				// 	->whereIn('ebs_pull.customer_name',[$store->bea_mo_store_name,$store->bea_so_store_name])
-				->whereIn('ebs_pull.customer_name', $storeAccess)
+					->whereIn('ebs_pull.customer_name', $storeAccess)
 					->distinct();   
 			}
 			else{
 				$query->select('ebs_pull.dr_number','ebs_pull.customer_name','ebs_pull.status')
-				->where('ebs_pull.status','PENDING')
-				->orderBy('ebs_pull.customer_name','ASC')
-				->distinct();
+					->where('ebs_pull.status','PENDING')
+					->orderBy('ebs_pull.customer_name','ASC')
+					->distinct();
 			}
 	    }
 
@@ -396,12 +396,9 @@
 			$data['items'] = $item_data;
 			$data['dr_items'] = json_encode($dr_data);
 			
-			// added comment
-			\Log::info('test1 '. json_encode(CRUDBooster::myBulkReceiving()));
-			
-			if($data['dr_detail']->status == 'RECEIVED'){
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'DR# '.$data['dr_detail']->dr_number.' has already been received!','warning')->send();
-			}
+			// if($data['dr_detail']->status == 'RECEIVED'){
+			// 	CRUDBooster::redirect(CRUDBooster::mainpath(),'DR# '.$data['dr_detail']->dr_number.' has already been received!','warning')->send();
+			// }
 			if(CRUDBooster::myChannel() == 4){ //online
 				return view("delivery.onl-receive", $data);
 			}
@@ -550,6 +547,7 @@
 
 		public function saveReceivingST(Request $request)
 		{
+			dd($request->all());
 			$bea_record = DB::table('ebs_pull')->where('dr_number', $request->dr_number)->first();
 			if($bea_record->status == 'RECEIVED'){
 				CRUDBooster::redirect(CRUDBooster::mainpath(),'DR# '.$bea_record->dr_number.' has already been received!','warning')->send();
@@ -562,9 +560,9 @@
 				$stores = DB::table('stores')->where('bea_mo_store_name', $bea_record->customer_name)->first();
 			}
 			 //edited 20220318 due to soap error
-// 			$stockAdjustments = app(POSPullController::class)->getStockAdjustment($request->dr_number); //timeout while checking
-				
-// 			if($stockAdjustments['data']['record']['fstatus_flag'] != 'POSTED'){
+			// $stockAdjustments = app(POSPullController::class)->getStockAdjustment($request->dr_number); //timeout while checking
+							
+			// if($stockAdjustments['data']['record']['fstatus_flag'] != 'POSTED'){
 				//if(substr($stores->bea_mo_store_name, -3) != 'FBV'){
 				if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
 				    if($request->transaction_type != 'MO-RMA'){
@@ -575,7 +573,7 @@
 				    }
 				    
 				}
-// 			}
+			// }
 			// check first if ST is existing
 			$stockTransfers = app(POSPullController::class)->getStockTransferByRef($request->dr_number);
             
@@ -689,4 +687,112 @@
 		}
 
 
+		public function checkDeliveryStatus(Request $request){
+			$data = [];
+			$data['status'] = 0;
+			$bea_record = EBSPull::getDeliveryDetails($request->dr_number);
+			if($bea_record->status == 'RECEIVED'){
+				$data['status'] = 1;
+				$data['message'] = 'DR# has already been received!';
+			}
+			return $data;
+		}
+
+		public function checkPOSStockAdjustment(Request $request){
+			$data = [];
+			$stockAdjustments = (new POSPullController)->getStockAdjustment($request->dr_number);
+			$data['message'] = $stockAdjustments['data']['record']['fstatus_flag'];
+			// if(sizeof($stockAdjustments['data']['record']) > 1)
+			// 	$data['message'] = $stockAdjustments['data']['record'][0]['fstatus_flag']; //!= 'POSTED'
+			return $data;
+		}
+
+		public function checkPOSStockTransfer(Request $request){
+			$data = [];
+			$stockTransfers = (new POSPullController)->getStockTransferByRef($request->dr_number);
+			$data['message'] = $stockTransfers['data']['record']['fstatus_flag'];
+			// if(sizeof($stockTransfers['data']['record']) > 1)
+			// 	$data['message'] = $stockTransfers['data']['record'][0]['fstatus_flag'];
+			return $data;
+		}
+
+		public function createPOSAdj(Request $request) {
+			$data = [];
+			$data['status'] = 0;
+			$bea_record = EBSPull::getDeliveryDetails($request->dr_number);
+			$stores = StoreName::getMoCustomerName($bea_record->customer_name);
+
+			if($request->transaction_type == 'SO'){
+				$stores = StoreName::getSoCustomerName($bea_record->customer_name);
+			}
+
+			if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
+				if($request->transaction_type != 'MO-RMA'){
+					$postedSI = (new POSPushController)->postSI($request->dr_number);
+				}
+				else{
+					$postedSI = (new POSPushController)->postSI($request->dr_number,'DIGITSRMA');
+				}
+				$data['message'] = $postedSI['data']['record']['fdocument_no'];
+				$data['status'] = $postedSI['data']['record']['fstatus_flag'];
+			}
+
+			return $data;
+		}
+
+		public function createPOSSto(Request $request) {
+			$data = [];
+			$data['status'] = 0;
+			$bea_record = EBSPull::getDeliveryDetails($request->dr_number);
+			$stores = StoreName::getMoCustomerName($bea_record->customer_name);
+
+			if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
+				if($request->transaction_type != 'MO-RMA'){
+					$postedST = (new POSPushController)->postST($request->dr_number, 'DIGITSWAREHOUSE', $stores->pos_warehouse);
+				}
+				else{
+					$postedST = (new POSPushController)->postST($request->dr_number, 'DIGITSRMA', $stores->pos_warehouse);
+				}
+				$data['message'] = $postedST['data']['record']['fdocument_no'];
+				$data['status'] = $postedST['data']['record']['fstatus_flag'];
+			}
+
+			return $data;
+		}
+
+		public function createBEADOT(Request $request) {
+			$data = [];
+			$data['status'] = 0;
+
+			EBSPull::where('dr_number',$request->dr_number)
+			->update([
+				'io_reference' => (isset($request->io_reference)) ? $request->io_reference:null,
+				'status' => 'RECEIVED',
+				'received_at' => date('Y-m-d H:i:s')
+			]);
+
+			CRUDBooster::insertLog(trans("crudbooster.dr_received", ['dr_number' =>$request->dr_number]));
+			CRUDBooster::redirect(CRUDBooster::mainpath(),'DR# '.$request->dr_number.' has been received!','success')->send();
+
+			// $data['status'] = 1;
+			// $data['message'] = `DR# $request->dr_number has been received successfully!`;
+			// return $data;
+		}
+
+		public function getPOSItemDetails(Request $request){
+			$data = [];
+			$itemDetail = (new POSPullController)->getProduct($request->ordered_item);
+			$data['item_type'] = $itemDetail['data']['record']['fproduct_type'];
+			$data['item_price'] = $itemDetail['data']['record']['flist_price'];
+			return $data;
+		}
+
+		public function getBEAItemDetails(Request $request){
+			\Log::debug($request->all());
+			$data = [];
+			$data['beaItemDetail'] = (new EBSPullController)->getProductSerials($request->ordered_item, $request->dr_number);
+            $data['serials'] = (new EBSPullController)->getItemSerials($request->ordered_item, $request->dr_number);
+            $data['unique_serials'] = (new EBSPullController)->getDuplicateSerials($request->ordered_item, $request->dr_number);
+			return $data;
+		}
 	}

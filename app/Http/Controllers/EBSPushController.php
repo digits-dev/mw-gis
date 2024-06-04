@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\OracleItemInterface;
 use Illuminate\Http\Request;
 use DB;
 use PDO;
@@ -722,23 +723,23 @@ class EBSPushController extends Controller
         });
     }
 
-    public function createBEAItem($organization_id, $process_id, $template_id, $item_code, $upc_code, $supplier_itemcode, $item_description, $brand, $warehouse_category, $current_srp, $purchase_price, $serial_flag)
+    public function createBEAItem($data = [])
     {
-        $result = DB::connection('oracle')->table('MTL_SYSTEM_ITEMS_INTERFACE')->insert([
+        OracleItemInterface::insert([
             'PROCESS_FLAG' => 1,
-            'SET_PROCESS_ID' => $process_id, //auto generate
-            'TRANSACTION_TYPE' => 'CREATE',
-            'ORGANIZATION_ID' => $organization_id,
-            'SEGMENT1' => $item_code,
-            'ATTRIBUTE3' => $upc_code,
-            'ATTRIBUTE6' => $supplier_itemcode,
-            'DESCRIPTION' => $item_description,
-            'ATTRIBUTE7' => $brand,
-            'ATTRIBUTE8' => $warehouse_category,
-            'ATTRIBUTE1' => $current_srp,
-            'ATTRIBUTE9' => $purchase_price,
-            'SEGMENT20' => $serial_flag,
-            'TEMPLATE_ID' => $template_id,
+            'SET_PROCESS_ID' => $data['process_id'], //auto generate
+            'TRANSACTION_TYPE' => "CREATE",
+            'ORGANIZATION_ID' => $data['organization_id'],
+            'SEGMENT1' => $data['digits_code'],
+            'ATTRIBUTE3' => $data['upc_code'],
+            'ATTRIBUTE6' => $data['supplier_item_code'],
+            'DESCRIPTION' => $data['item_description'],
+            'ATTRIBUTE7' => $data['brand'],
+            'ATTRIBUTE8' => $data['warehouse_category'],
+            'ATTRIBUTE1' => $data['current_srp'],
+            'ATTRIBUTE9' => $data['purchase_price'],
+            'SEGMENT20' => $data['has_serial'],
+            'TEMPLATE_ID' => $data['template_id'],
             'LAST_UPDATE_DATE' => $this->sysdate[0]->sysdate,
             'LAST_UPDATED_BY' => 0,
             'CREATION_DATE' => $this->sysdate[0]->sysdate,

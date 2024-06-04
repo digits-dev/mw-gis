@@ -40,7 +40,7 @@ table.table.table-bordered th {
             <div class="col-md-12">
                 <p style="font-size:16px; color:red; text-align:center;"><b>**PLEASE DO NOT MANUALLY TYPE THE DIGITS CODE**</b></p>
             </div>
-
+            
             <form action="{{ route('saveReceivingST') }}" method="POST" id="st_received" autocomplete="off" role="form" enctype="multipart/form-data">
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
             <input type="hidden" name="transaction_type" id="transaction_type" value="{{$dr_detail->transaction_type}}"/>
@@ -106,7 +106,7 @@ table.table.table-bordered th {
                             <tbody>
                                 @foreach ($items as $item)
                                     <tr>
-                                        <td class="text-center">{{$item['digits_code']}} <input type="hidden" name="digits_code[]" value="{{ $item['digits_code'] }}"></td>
+                                        <td class="text-center">{{$item['digits_code']}} <input type="hidden" class="digits_code" name="digits_code[]" value="{{ $item['digits_code'] }}"></td>
                                         <td class="text-center">{{$item['upc_code']}} <input type="hidden" name="bea_item_id[]" value="{{ $item['bea_item_id'] }}"/></td>
                                         <td>{{$item['item_description']}}</td>
                                         <td class="text-center">{{$item['st_quantity']}}<input type="hidden" name="st_quantity[]" id="stqty_{{ $item['digits_code'] }}" value="{{ $item['st_quantity'] }}"/>
@@ -300,6 +300,7 @@ $(document).ready(function() {
     var sn_field = '';
 
     $('#item_search').keypress(function(event){
+        
         if (event.which == '13' || event.keyCode == 13) {
             event.preventDefault();
             $('.scan').css('background-color','white');
@@ -478,6 +479,8 @@ $(document).ready(function() {
 
     $("#btnSubmit").click(function(event) {
         event.preventDefault();
+        const form = $('#st_received');
+        const drNumber = $('#dr_number').val();
         if($("#st_received").valid()){
             Swal.fire({
               title: 'Do you want to save the changes?',
@@ -487,7 +490,58 @@ $(document).ready(function() {
             }).then((result) => {
               if (result.isConfirmed) {
                     $(this).prop("disabled", true);
-                    $("#st_received").submit();
+                    // $("#st_received").submit();
+                    
+                    doAjax(`{{ route('checkDR') }}`, form.serialize()).then(function(checkedDR){
+                        if(checkedDR.status == 1){
+                            Swal.fire('Information!',checkedDR.message,'info');
+                            return false;
+                        }
+                    });
+                    
+                    doAjax(`{{ route('checkSI') }}`, form.serialize()).then(function(checkedSI){
+                        if(checkedSI.message != 'POSTED'){
+                            //check items if serial/general
+                            $('.digits_code').each(function (){
+                                const orderedItem = $(this).val();
+
+                                doAjax(`{{ route('getPOSItem') }}`, `ordered_item=${orderedItem}`).then(function(posItems){
+                                    const formData = JSON.parse(`"ordered_item":"${orderedItem}","dr_number":"${drNumber}"`);
+                                    console.log(JSON.stringify({ ordered_item: orderedItem, dr_number: drNumber }));
+
+                                    doAjax(`{{ route('getBEAItem') }}`, formData).then(function(beaItems){
+                                        if(posItems.item_type == 0){
+                                            // if(!beaItems.beaItemDetail.serial){
+                                            //     console.log('tagged as general item but with a serial number!');
+                                            // }
+                                            console.log('general item!');
+                                        }else{
+
+                                        }
+                                    });
+                                    
+                                    doAjax(`{{ route('createPOSAdjDR') }}`, form.serialize());
+                                });
+                            });
+                            
+                            
+                        }
+                    });
+                    
+                    doAjax(`{{ route('checkST') }}`, form.serialize()).then(function(checkedST) {
+                        if(checkedST.message != 'POSTED'){
+                            doAjax(`{{ route('createPOSStoDR') }}`, form.serialize()).then(function(createPOSSto) {
+                                Swal.fire(createPOSSto.message + ' has been ' + createPOSSto.status);
+                            });
+                        }
+                        else{
+                            Swal.fire('Information!','Stock transfer has already been posted!','info');
+                        }
+                    });
+                    
+                    doAjax(`{{ route('createDRBEA') }}`, form.serialize()).then(function(createdBEA){
+                        // $(location).attr('href',createdBEA.redirect_url);
+                    });
               }
             });
             
@@ -496,6 +550,22 @@ $(document).ready(function() {
 
 });
 
+async function doAjax(url, params = {}, method = 'POST') {
+    let result;
+    try {
+        result = await $.ajax({
+            url: url,
+            type: method,
+            dataType: 'json',
+            data: params
+        });
+        console.log(new Date(),url,result);
+        return result;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
 function in_array(search, array) {
   for (i = 0; i < array.length; i++) {
     if (array[i] == search) {
@@ -503,6 +573,15 @@ function in_array(search, array) {
     }
   }
   return false;
+}
+
+function getItemCodes() {
+    const itemCodeList = [];
+    $('.digits_code').each(function (){
+        itemcodes.push($(this).val());
+    });
+
+    return itemcodes;
 }
 
 function cancelSerial(){

@@ -12,6 +12,8 @@
 */
 
 use App\Delivery;
+use App\Http\Controllers\ReportsController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect('admin/login');
@@ -326,4 +328,16 @@ Route::get('/admin/reports/generatePurchaseOrderReport/{date_from}/{date_to}','R
 
 // EDITED BY LEWIE
 Route::get('/admin/generateIntransitReport/{date_from}/{date_to}/{org}', 'ReportsController@generateIntransitReport');
+
+
+//new dr receiving routes
+Route::post('/admin/delivery_receiving/check_dr','AdminDeliveryReceivingController@checkDeliveryStatus')->name('checkDR');
+Route::post('/admin/delivery_receiving/check_pos_si','AdminDeliveryReceivingController@checkPOSStockAdjustment')->name('checkSI');
+Route::post('/admin/delivery_receiving/check_pos_st','AdminDeliveryReceivingController@checkPOSStockTransfer')->name('checkST');
+Route::post('/admin/delivery_receiving/create_pos_si','AdminDeliveryReceivingController@createPOSAdj')->name('createPOSAdjDR');
+Route::post('/admin/delivery_receiving/create_pos_st','AdminDeliveryReceivingController@createPOSSto')->name('createPOSStoDR');
+Route::post('/admin/delivery_receiving/create_bea_dot','AdminDeliveryReceivingController@createBEADOT')->name('createDRBEA');
+Route::post('/admin/delivery_receiving/get_pos_item','AdminDeliveryReceivingController@getPOSItemDetails')->name('getPOSItem');
+Route::post('/admin/delivery_receiving/get_bea_item','AdminDeliveryReceivingController@getBEAItemDetails')->name('getBEAItem');
+
 

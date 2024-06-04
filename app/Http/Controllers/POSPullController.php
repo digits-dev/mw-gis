@@ -16,12 +16,17 @@ class POSPullController extends Controller
      */
 
     private $client;
+    private $w3p_id;
+    private $w3p_key;
 
     public function __construct()
     {
         ini_set("soap.wsdl_cache_enabled", "0");
         $this->client = new \SoapClient("http://bc.alliancewebpos.com/appserv/app/w3p/w3p.wsdl", 
             array("location" => "http://bc.alliancewebpos.com/appserv/app/w3p/W3PSoapServer.php")); 
+
+        $this->w3p_id = config('w3p.w3p_id');
+        $this->w3p_key = config('w3p.w3p_key');
     }
     
     public function posPull($datefrom, $dateto)
@@ -67,8 +72,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -102,8 +107,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -124,8 +129,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -145,8 +150,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -167,8 +172,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -189,8 +194,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -212,8 +217,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
@@ -235,8 +240,8 @@ class POSPullController extends Controller
         $parameter = "
             <root>
                 <id>
-                    <fw3p_id>17052282</fw3p_id>
-                    <fw3p_key>12345</fw3p_key>
+                    <fw3p_id>".$this->w3p_id."</fw3p_id>
+                    <fw3p_key>".$this->w3p_key."</fw3p_key>
                 </id>
 
                 <data>
