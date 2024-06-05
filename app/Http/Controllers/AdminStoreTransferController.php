@@ -7,6 +7,7 @@
 	use Illuminate\Support\Facades\File;
 	use Illuminate\Http\Request;
 	use App\ApprovalMatrix;
+	use Carbon\Carbon;
 
 	class AdminStoreTransferController extends \crocodicstudio\crudbooster\controllers\CBController {
 
@@ -28,7 +29,7 @@
 			$this->button_filter = true;
 			$this->button_import = false;
 			$this->button_export = false;
-			$this->table = "pos_pull";
+			$this->table = "pos_pull_headers";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
@@ -259,7 +260,7 @@
 			if(!CRUDBooster::isSuperadmin()){
 				$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 				if (in_array(CRUDBooster::myPrivilegeName() ,["LOG TM","LOG TL"])) {
-					$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status')->where('pos_pull.status','FOR SCHEDULE')->where('transport_types_id',1)->distinct();
+					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')->where('pos_pull_headers.status','FOR SCHEDULE')->where('transport_types_id',1)->distinct();
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
 					//get approval matrix
@@ -272,19 +273,19 @@
 					$approval_string = implode(",",$approval_array);
 					$storeList = array_map('intval',explode(",",$approval_string));
 	
-					$query->whereIn('pos_pull.stores_id', array_values((array)$storeList))
-						->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status','pos_pull.created_date')->distinct();
+					$query->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList))
+						->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')->distinct();
 				}
 				else{
-					$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status','pos_pull.created_date')
-					->where('pos_pull.stores_id',$store->id)
-					->orderByRaw('FIELD(pos_pull.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
+					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
+					->where('pos_pull_headers.stores_id',$store->id)
+					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
 					->distinct();
 				}
 				
 			}
 			else{
-				$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status','pos_pull.created_date')
+				$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 				->distinct();
 			}
 	            
@@ -407,22 +408,17 @@
 
 	    }
 
-		public function getScan()
-		{
+		public function getScan(){
 			$this->cbLoader();
-
 			$data = array();
-			
 			$data['page_title'] = 'Create STS';
-
 			if(CRUDBooster::isSuperadmin()){
 				$data['transfer_from'] = DB::table('stores')
 				->select('id','pos_warehouse','pos_warehouse_transit','pos_warehouse_name')
 				->where('status', 'ACTIVE')
 				->orderBy('pos_warehouse_name', 'ASC')
 				->get();
-			}
-			else{
+			}else{
 				$data['transfer_from'] = DB::table('stores')
 				->select('id','pos_warehouse','pos_warehouse_transit','pos_warehouse_name','sts_group')
 				->whereIn('id',CRUDBooster::myStore())
@@ -484,8 +480,7 @@
 			
 		}
 
-		public function scanItemSearch(Request $request)
-		{
+		public function scanItemSearch(Request $request){
 			$data = array();
 			$item_serials = array();
             $data['status_no'] = 0;
@@ -510,18 +505,13 @@
 				}
 				if(empty($stockStatus['data']['record'])){ //fix 2021-02-22
 					$qty = -1;
-				}
-				
-				else{
-				    
+				}else{
 					foreach ($stock_status as $value) {
-						
 						if(is_array($value)){
 							if($value['fqtyz'] != 0.000000 ){
 								array_push($item_serials, $value['flotno']);
 							}
-						}
-						else{
+						}else{
 							if($value->fqtyz != 0.000000 ){
 								array_push($item_serials, $value->flotno);
 							}
@@ -561,8 +551,7 @@
             exit;
 		}
 
-		public function scanSerialSearch(Request $request)
-		{
+		public function scanSerialSearch(Request $request){
 			$data = array();
             $data['status_no'] = 0;
 			$data['message'] ='No serial found!';
@@ -1337,5 +1326,28 @@
 
 			$this->cbView("stock-transfer.schedule", $data);
 		}
-		
+
+		public function autoRejectHandCarry(){
+			// Calculate the date and time 24 hours ago
+			$twentyFourHoursAgo = Carbon::now()->subDay();
+			$getAutoReject = DB::table('pos_pull')->whereNotNull('approved_at')
+			->where('transport_types_id',2)
+			->where('approved_at', '<=', $twentyFourHoursAgo)
+			->whereNotIn('status',['VOID','RECEIVED'])
+			->get();
+			dd($getAutoReject);
+
+			// $voidST = app(POSPushController::class)->voidStockTransfer($st_number);
+			if($voidST['data']['record']['fresult'] == "ERROR"){
+				$error = $voidST['data']['record']['errors']['error'];
+				CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
+			}
+			else{
+				DB::table('pos_pull')->where('st_document_number',$st_number)->update([
+					'status' => 'VOID',
+					'updated_at' => date('Y-m-d H:i:s')
+				]);
+				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
+			}
+		}
 	}
