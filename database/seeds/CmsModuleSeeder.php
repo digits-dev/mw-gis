@@ -16,11 +16,11 @@ class CmsModuleSeeder extends Seeder
     {
         $modules = [
             [
-                'name'         => 'Create GIS STS',
-                'icon'         => 'fa fa-file-text',
-                'path'         => 'store_transfer_gis',
-                'table_name'   => 'gis_pulls',
-                'controller'   => 'AdminStoreTransferGisController',
+                'name'         => 'STS Confirmation',
+                'icon'         => 'fa fa-circle-o',
+                'path'         => 'store_transfer_confirmation',
+                'table_name'   => 'pos_pull_headers',
+                'controller'   => 'AdminStoreTransferConfirmationController',
                 'is_protected' => 0,
                 'is_active'    => 0
             ]

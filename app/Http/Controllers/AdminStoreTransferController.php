@@ -264,7 +264,7 @@
 			if(!CRUDBooster::isSuperadmin()){
 				$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 				if (in_array(CRUDBooster::myPrivilegeName() ,["LOG TM","LOG TL"])) {
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')->where('pos_pull_headers.status','FOR SCHEDULE')->where('transport_types_id',1)->distinct();
+					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')->where('pos_pull_headers.status','FOR SCHEDULE')->where('transport_types_id',1);
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
 					//get approval matrix
@@ -278,19 +278,17 @@
 					$storeList = array_map('intval',explode(",",$approval_string));
 	
 					$query->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList))
-						->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')->distinct();
+						->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date');
 				}
 				else{
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-					->where('pos_pull_headers.stores_id',$store->id)
-					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
-					->distinct();
+					->where('pos_pull_headers.created_by',CRUDBooster::myId())
+					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
 				
 			}
 			else{
-				$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-				->distinct();
+				$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date');
 			}
 	            
 	    }
@@ -1298,25 +1296,25 @@
 
 			$data['page_title'] = 'Schedule Stock Transfer';
 
-			$data['stDetails'] = DB::table('pos_pull')
-					->join('reason', 'pos_pull.reason_id', '=', 'reason.id')
-					->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
+			$data['stDetails'] = DB::table('pos_pull_headers')
+					->join('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
+					->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
 					->where('st_document_number', $st_number)
-					->select('pos_pull.*','reason.pullout_reason','transport_types.transport_type')
+					->select('pos_pull_headers.*','reason.pullout_reason','transport_types.transport_type')
 					->get();
 					
 
-			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
 
-			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id_destination)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
 
 			$items = DB::table('pos_pull')
-				->where('st_document_number',$st_number)
+				->where('pos_pull_header_id',$data['stDetails']->id)
 				->select('id','item_code','quantity','item_description')
 				->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
-				->where('st_document_number', $st_number)
+				->where('pos_pull_header_id', $data['stDetails']->id)
 				->sum('quantity');
 
 			foreach ($items as $key => $value) {

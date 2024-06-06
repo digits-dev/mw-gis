@@ -58,7 +58,7 @@ table.table.table-bordered th {
                                     <b>ST:</b>
                                 </td>
                                 <td width="35%">
-                                    {{$stDetails[0]->st_document_number}}
+                                    {{$stDetails->st_document_number}}
                                 </td>
                                 <td>
                                     <b>From:</b>
@@ -72,7 +72,7 @@ table.table.table-bordered th {
                                     <b>Scheduled:</b>
                                 </td>
                                 <td width="35%">
-                                    {{$stDetails[0]->scheduled_at}} - {{$stDetails[0]->scheduled_by}}
+                                    {{$stDetails->scheduled_at}} - {{$stDetails->scheduled_by}}
                                 </td>
                                 <td>
                                     <b>To:</b>
@@ -86,13 +86,13 @@ table.table.table-bordered th {
                                     <b>Transport By:</b>
                                 </td>
                                 <td width="35%">
-                                    {{ $stDetails[0]->transport_type }} @if(!empty($stDetails[0]->hand_carrier)) : {{ $stDetails[0]->hand_carrier }} @endif
+                                    {{ $stDetails->transport_type }} @if(!empty($stDetails->hand_carrier)) : {{ $stDetails->hand_carrier }} @endif
                                 </td>
                                 <td>
                                     <b>Reason:</b>
                                 </td>
                                 <td>
-                                    {{$stDetails[0]->pullout_reason}} 
+                                    {{$stDetails->pullout_reason}} 
                                 </td>
                             </tr>
                             
@@ -101,7 +101,7 @@ table.table.table-bordered th {
                                     <b>Notes:</b>
                                 </td>
                                 <td colspan="3">
-                                    {{ $stDetails[0]->memo }}
+                                    {{ $stDetails->memo }}
                                 </td>
                                 
                             </tr>

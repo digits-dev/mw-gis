@@ -45,8 +45,8 @@ table.table.table-bordered th {
                                     <b>ST:</b>
                                 </td>
                                 <td>
-                                    {{ $stDetails[0]->st_document_number }}
-                                    <input type="hidden" name="st_number" id="st_number" value="{{$stDetails[0]->st_document_number}}" >
+                                    {{ $stDetails->st_document_number }}
+                                    <input type="hidden" name="st_number" id="st_number" value="{{$stDetails->st_document_number}}" >
                                 </td>
                             </tr>
                             
@@ -73,7 +73,7 @@ table.table.table-bordered th {
                                     <b>Reason:</b>
                                 </td>
                                 <td>
-                                    {{ $stDetails[0]->pullout_reason }} 
+                                    {{ $stDetails->pullout_reason }} 
                                 </td>
                             </tr>
 
@@ -146,7 +146,7 @@ table.table.table-bordered th {
             
              <div class="col-md-12">
                 <h4><b>Note:</b></h4>
-                <p>{{ $stDetails[0]->memo }}</p>
+                <p>{{ $stDetails->memo }}</p>
             </div>
 
             </div>
