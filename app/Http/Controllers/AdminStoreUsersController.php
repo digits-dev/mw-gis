@@ -302,24 +302,16 @@
 	    | @arr
 	    |
 	    */
-	    public function hook_before_add(&$postdata) {        
+	    public function hook_before_add(&$postdata) {    
+			
+			
 			if($postdata['photo'] == '' || $postdata['photo'] == NULL) {
 				$postdata['photo'] = 'uploads/mrs-avatar.png';
 			}
 			
-			$storeData = array();
-			$storeList = json_encode($postdata['stores_id'], true);
-			$storeArray = explode(",", $storeList);
-	
-			foreach ($storeArray as $key => $value) {
-				$storeData[$key] = preg_replace("/[^0-9]/","",$value);
-			}
-	
-			if(!empty($postdata['stores_id'])){
-				$postdata['stores_id'] = implode(",", $storeData);
-			}
-			
 			$postdata['status'] = 'ACTIVE';
+
+			// dd($postdata);
 
 	    }
 

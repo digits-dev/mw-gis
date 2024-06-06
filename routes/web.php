@@ -340,4 +340,5 @@ Route::post('/admin/delivery_receiving/create_bea_dot','AdminDeliveryReceivingCo
 Route::post('/admin/delivery_receiving/get_pos_item','AdminDeliveryReceivingController@getPOSItemDetails')->name('getPOSItem');
 Route::post('/admin/delivery_receiving/get_bea_item','AdminDeliveryReceivingController@getBEAItemDetails')->name('getBEAItem');
 
-
+//Get Stores Options
+Route::get('/get-child-options/{parentId}', 'StoreOptions@getValues');
