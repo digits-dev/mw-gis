@@ -8,9 +8,13 @@
 	use Illuminate\Http\Request;
 	use App\ApprovalMatrix;
 	use Carbon\Carbon;
+	use App\CodeCounter;
 
 	class AdminStoreTransferController extends \crocodicstudio\crudbooster\controllers\CBController {
-
+		private const Pending = 'PENDING';
+		private const Void    = 'VOID';
+		private const ForSchedule    = 'FOR SCHEDULE';
+		private const ForReceiving   = 'FOR RECEIVING';
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -82,7 +86,7 @@
 					'url'=>CRUDBooster::mainpath('void-st').'/[st_document_number]',
 					'icon'=>'fa fa-times',
 					'color'=>'danger',
-					'showIf'=>"[status]=='PENDING'",
+					'showIf'=>"[status]==".self::Pending."",
 					'confirmation'=>'yes',
 					'confirmation_title'=>'Confirm Voiding',
 					'confirmation_text'=>'Are you sure to VOID this transaction?'
@@ -90,7 +94,7 @@
 			}
 			//$this->addaction[] = ['title'=>'Print','url'=>CRUDBooster::mainpath('print').'/[st_document_number]','icon'=>'fa fa-print','color'=>'info','showIf'=>"[status]=='FOR SCHEDULE'"];
 			if(CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeName() ,["LOG TM","LOG TL"])){
-				$this->addaction[] = ['title'=>'Schedule','url'=>CRUDBooster::mainpath('schedule').'/[st_document_number]','icon'=>'fa fa-calendar','color'=>'warning','showIf'=>"[status]=='FOR SCHEDULE'"];
+				$this->addaction[] = ['title'=>'Schedule','url'=>CRUDBooster::mainpath('schedule').'/[st_document_number]','icon'=>'fa fa-calendar','color'=>'warning','showIf'=>"[status]==".self::ForSchedule.""];
 			}
 			
 			$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('details').'/[st_document_number]','icon'=>'fa fa-eye','color'=>'primary'];
@@ -657,18 +661,35 @@
 					
 				}
 			}
-			$refcode = 'BEAPOSMW-STS-'.date('His');
-			$transfer_dest = (empty($request->transfer_rma)) ? $request->transfer_transit : $request->transfer_rma;
-			$postedST = app(POSPushController::class)->posCreateStockTransfer($refcode, $request->transfer_branch, $request->transfer_from, $transfer_dest, $request->memo, $posItemDetails);
-			
-            // 	$postedST = app(POSPushController::class)->posCreateStockTransfer($refcode, $request->transfer_branch, $request->transfer_from, $request->transfer_transit, $request->memo, $posItemDetails);
-			
-			\Log::info('sts create ST: '.json_encode($postedST));
-			//20210215 add checking if st number is not null
-			$st_number = $postedST['data']['record']['fdocument_no'];
+
 			$record=false;
-			
+
 			//save ST
+			//CREATE HEADER
+			$code_counter = CodeCounter::where('id', 3)->value('pullout_refcode');
+			$st_ref_no = 'MWSTS-'.str_pad($code_counter, 7, '0', STR_PAD_LEFT);
+			$headerDetails = [
+				'reference_number'      => $st_ref_no,
+				'status'                => self::Pending,
+				'wh_from'               => $request->transfer_from,
+				'wh_to'                 => $request->transfer_to,
+				'stores_id'             => (int)(implode("",CRUDBooster::myStore())),
+				'channel_id'            => CRUDBooster::myChannel(),
+				'stores_id_destination' => $request->stores_id_destination,
+				'memo'                  => $request->memo,
+				'reason_id'             => $request->reason,
+				'transport_types_id'    => $request->transport_type,
+				'hand_carrier'          => $request->hand_carrier,
+				'st_document_number'    => $st_number,
+				'st_status_id'          => 2,
+				'created_date'          => date('Y-m-d'),
+				'created_by'            => CRUDBooster::myId(),
+				'created_at'            => date('Y-m-d H:i:s')
+			];
+
+			$pos_pull_id = DB::table('pos_pull_headers')->insertGetId($headerDetails);
+			DB::table('code_counter')->where('id', 3)->increment('pullout_refcode');
+			//Save lines
 			foreach ($request->digits_code as $key_item => $value_item) {
 				$serial = $value_item.'_serial_number';
 				$item_serials = array();
@@ -678,62 +699,36 @@
 					}
 					
 					$stDetails = [
-						'item_code' => $value_item,
-						'item_description' => $request->item_description[$key_item],
-						'quantity' => $request->st_quantity[$key_item],
-						'serial' => implode(",",(array)$item_serials),
-						'wh_from' => $request->transfer_from,
-						'wh_to' => $request->transfer_to,
-						'stores_id' => (int)(implode("",CRUDBooster::myStore())),
-						'channel_id' => CRUDBooster::myChannel(),
-						'stores_id_destination' => $request->stores_id_destination,
-						'memo' => $request->memo,
-						// 'transfer_date' => $request->transfer_date,
-						'reason_id' => $request->reason,
-						'transport_types_id' => $request->transport_type,
-						'hand_carrier' => $request->hand_carrier,
-						'st_document_number' => $st_number,
-						'st_status_id' => 2,
-						'has_serial' => 1,
-						'status' => 'PENDING',
-						'created_date' => date('Y-m-d'),
-						'created_at' => date('Y-m-d H:i:s')
+						'pos_pull_header_id' => $pos_pull_id,
+						'item_code'          => $value_item,
+						'item_description'   => $request->item_description[$key_item],
+						'quantity'           => $request->st_quantity[$key_item],
+						'serial'             => implode(",",(array)$item_serials),
+						'has_serial'         => 1,
+						'created_at'         => date('Y-m-d H:i:s')
 					];
 					
 				}
 				else{
 					$stDetails = [
-						'item_code' => $value_item,
-						'item_description' => $request->item_description[$key_item],
-						'quantity' => $request->st_quantity[$key_item],
-						'wh_from' => $request->transfer_from,
-						'wh_to' => $request->transfer_to,
-						'stores_id' => (int)(implode("",CRUDBooster::myStore())),
-						'channel_id' => CRUDBooster::myChannel(),
-						'stores_id_destination' => $request->stores_id_destination,
-						'memo' => $request->memo,
-						// 'transfer_date' => $request->transfer_date,
-						'reason_id' => $request->reason,
-						'transport_types_id' => $request->transport_type,
-						'hand_carrier' => $request->hand_carrier,
-						'st_document_number' => $st_number,
-						'st_status_id' => 2,
-						'status' => 'PENDING',
-						'created_date' => date('Y-m-d'),
-						'created_at' => date('Y-m-d H:i:s')
+						'pos_pull_header_id' => $pos_pull_id,
+						'item_code'          => $value_item,
+						'item_description'   => $request->item_description[$key_item],
+						'quantity'           => $request->st_quantity[$key_item],
+						'created_at'         => date('Y-m-d H:i:s')
 					];
 				}
 
-				$pos_pull_id = DB::table('pos_pull')->insertGetId($stDetails);
+				$ebsPullId = DB::table('pos_pull')->insertGetId($stDetails);
 				$record = true;
-				$getSerial = self::getSerialById($pos_pull_id);
+				$getSerial = self::getSerialById($ebsPullId);
 
 				if(!is_null($getSerial)){
 					$serials = explode(",",$getSerial->serial);
 					foreach ($serials as $serial) {
 						if($serial != ""){
 							DB::table('serials')->insert([
-								'pos_pull_id' => $pos_pull_id, 
+								'pos_pull_id' => $ebsPullId, 
 								'serial_number' => $serial,
 								'created_at' => date('Y-m-d H:i:s')
 							]);
@@ -741,6 +736,28 @@
 					}
 				}
 				
+			}
+
+			//SAVE TO POS
+			$refcode = DB::table('pos_pull_headers')->where('id',$pos_pull_id)->first();
+			$checkIfExistInPos = self::checkPOSStockTransfer($refcode->reference_number);
+			if($checkIfExistInPos != 'POSTED'){
+				$transfer_dest = (empty($request->transfer_rma)) ? $request->transfer_transit : $request->transfer_rma;
+				$postedST = app(POSPushController::class)->posCreateStockTransfer(
+				$refcode->reference_number, 
+				$request->transfer_branch, 
+				$request->transfer_from, 
+				$transfer_dest, 
+				$request->memo, 
+				$posItemDetails);
+				
+				// 	$postedST = app(POSPushController::class)->posCreateStockTransfer($refcode, $request->transfer_branch, $request->transfer_from, $request->transfer_transit, $request->memo, $posItemDetails);
+				
+				\Log::info('sts create ST: '.json_encode($postedST));
+				//20210215 add checking if st number is not null
+				$st_number = $postedST['data']['record']['fdocument_no'];
+				//UPDATE ST NUMBER IN POS HEADERS TABLE
+				DB::table('pos_pull_headers')->where('id',$pos_pull_id)->update(['st_document_number'=>$st_number]);
 			}
 			
 			if($record && !empty($st_number)){
@@ -1080,25 +1097,25 @@
 			
 			$data['page_title'] = 'STS Details';
 
-			$data['stDetails'] = DB::table('pos_pull')
-				->join('reason', 'pos_pull.reason_id', '=', 'reason.id')
-				->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-				->leftJoin('cms_users', 'pos_pull.scheduled_by', '=', 'cms_users.id')
-				->where('pos_pull.st_document_number', $st_number)
-				->select('pos_pull.*','reason.pullout_reason','transport_types.transport_type','cms_users.name as scheduled_by')
-				->get();
+			$data['stDetails'] = DB::table('pos_pull_headers')
+				->join('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
+				->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
+				->leftJoin('cms_users', 'pos_pull_headers.scheduled_by', '=', 'cms_users.id')
+				->where('pos_pull_headers.st_document_number', $st_number)
+				->select('pos_pull_headers.*','reason.pullout_reason','transport_types.transport_type','cms_users.name as scheduled_by')
+				->first();
 
-			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
 
-			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id_destination)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
 
 			$items = DB::table('pos_pull')
-			->where('st_document_number',$st_number)
+			->where('pos_pull_header_id',$data['stDetails']->id)
 			->select('id','item_code','quantity','item_description')
 			->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
-			->where('st_document_number', $st_number)
+			->where('pos_pull_header_id', $data['stDetails']->id)
 			->sum('quantity');
 
 			foreach ($items as $key => $value) {
@@ -1128,7 +1145,7 @@
 
 		public function voidStockTransfer($st_number)
 		{
-			$isGisSt = DB::table('pos_pull')->where('st_document_number',$st_number)->first();
+			$isGisSt = DB::table('pos_pull_headers')->where('st_document_number',$st_number)->first();
 			if(!$isGisSt->location_id_from){
 				$voidST = app(POSPushController::class)->voidStockTransfer($st_number);
 				
@@ -1137,18 +1154,18 @@
 					CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
 				}
 				else{
-					DB::table('pos_pull')->where('st_document_number',$st_number)->update([
+					DB::table('pos_pull_headers')->where('st_document_number',$st_number)->update([
 						'status' => 'VOID',
 						'updated_at' => date('Y-m-d H:i:s')
 					]);
 					CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
 				}
 			}else{
-				$items = DB::table('pos_pull')->where('st_document_number',$st_number)->get();
+				$items = DB::table('pos_pull')->where('pos_pull_header_id',$isGisSt->id)->get();
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 				->where('location_id',$isGisSt->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 				//UPDATE STATUS HEADER
-				DB::table('pos_pull')->where('st_document_number',$st_number)->update([
+				DB::table('pos_pull_headers')->where('st_document_number',$st_number)->update([
 					'status' => 'VOID',
 					'updated_at' => date('Y-m-d H:i:s')
 				]);
@@ -1160,9 +1177,9 @@
 					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
 					->where([
 						'items.digits_code' => $item->item_code,
-						'inventory_capsules.locations_id' => $item->location_id_from
+						'inventory_capsules.locations_id' => $isGisSt->location_id_from
 					])
-					->where('inventory_capsule_lines.sub_locations_id',$item->sub_location_id_from)
+					->where('inventory_capsule_lines.sub_locations_id',$isGisSt->sub_location_id_from)
 					->update([
 						'qty' => DB::raw("qty + $item->quantity"),
 						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
@@ -1174,7 +1191,7 @@
 					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
 					->where([
 						'items.digits_code' => $item->item_code,
-						'inventory_capsules.locations_id' => $item->location_id_from
+						'inventory_capsules.locations_id' => $isGisSt->location_id_from
 					])
 					->where('inventory_capsule_lines.sub_locations_id',$from_intransit_gis_sub_location->id)
 					->update([
@@ -1192,8 +1209,8 @@
 						'reference_number' => $st_number,
 						'item_code' => $item_code->digits_code2,
 						'capsule_action_types_id' => $capsuleAction->id,
-						'locations_id' => $item->location_id_from,
-						'from_sub_locations_id' => $item->sub_location_id_from,
+						'locations_id' => $isGisSt->location_id_from,
+						'from_sub_locations_id' => $isGisSt->sub_location_id_from,
 						'to_sub_locations_id' => $from_intransit_gis_sub_location->id,
 						'qty' => $item->quantity,
 						'created_at' => date('Y-m-d H:i:s'),
@@ -1203,9 +1220,9 @@
 						'reference_number' => $st_number,
 						'item_code' => $item_code->digits_code2,
 						'capsule_action_types_id' => $capsuleAction->id,
-						'locations_id' => $item->location_id_from,
+						'locations_id' => $isGisSt->location_id_from,
 						'from_sub_locations_id' => $from_intransit_gis_sub_location->id,
-						'to_sub_locations_id' => $item->sub_location_id_from,
+						'to_sub_locations_id' => $isGisSt->sub_location_id_from,
 						'qty' => -1 * abs($item->quantity),
 						'created_at' => date('Y-m-d H:i:s'),
 						'created_by' => $gis_mw_name->id
@@ -1228,24 +1245,24 @@
 
 			$data['page_title'] = 'Stock Transfer Details';
 
-			$data['stDetails'] = DB::table('pos_pull')
-				->join('reason', 'pos_pull.reason_id', '=', 'reason.id')
-				->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
+			$data['stDetails'] = DB::table('pos_pull_headers')
+				->join('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
+				->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
 				->where('st_document_number', $st_number)
-				->select('pos_pull.*','reason.pullout_reason','transport_types.transport_type')
-				->get();
+				->select('pos_pull_headers.*','reason.pullout_reason','transport_types.transport_type')
+				->first();
 			
-			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
 
-			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id_destination)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
 
 			$items = DB::table('pos_pull')
-				->where('st_document_number',$st_number)
+				->where('pos_pull_header_id',$data['stDetails']->id)
 				->select('id','item_code','quantity','item_description')
 				->get();
 
 			$data['stQuantity'] =  DB::table('pos_pull')
-				->where('st_document_number', $st_number)
+				->where('pos_pull_header_id', $data['stDetails']->id)
 				->sum('quantity');
 
 			foreach ($items as $key => $value) {
@@ -1350,4 +1367,12 @@
 				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
 			}
 		}
+
+		public function checkPOSStockTransfer($refcode){
+			$data = [];
+			$stockTransfers = (new POSPullController)->getStockTransferByRef($refcode);
+			$data['message'] = $stockTransfers['data']['record']['fstatus_flag'];
+			return $data;
+		}
+
 	}

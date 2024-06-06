@@ -51,6 +51,7 @@ class CreatePosPullHeadersTable extends Migration
             $table->string('approver_comments')->nullable();
             $table->integer('created_by')->nullable();
             $table->integer('updated_by')->nullable();
+            $table->date('created_date')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
