@@ -9,8 +9,9 @@ class StoreOptions extends Controller
 {
     public function getValues($parentId)
     {
+        $data = [];
+        $data['childOptions'] = DB::table('stores')->where('channel_id', $parentId)->get(); 
       
-        $childOptions = DB::table('stores')->where('channel_id', $parentId)->get(); 
-        return response()->json($childOptions);
+        return response()->json($data);
     }
 }

@@ -36,8 +36,8 @@ class CreatePosPullHeadersTable extends Migration
             $table->string('sub_location_id_to')->nullable();
             $table->integer('st_status_id')->nullable();
             $table->longtext('file_name')->nullable();
-            $table->integer('schedule_by')->nullable();
-            $table->dateTime('schedule_at')->nullable();
+            $table->integer('scheduled_by')->nullable();
+            $table->dateTime('scheduled_at')->nullable();
             $table->integer('received_by')->nullable();
             $table->dateTime('received_at')->nullable();
             $table->integer('confirmed_by')->nullable();

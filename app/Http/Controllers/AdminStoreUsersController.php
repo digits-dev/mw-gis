@@ -465,9 +465,11 @@
 			$data['privileges'] = DB::table('cms_privileges')->whereIn('id', [28,29,30,31,32])->get();
 			$data['channels'] = DB::table('channel')->whereIn('id', [1,2])->get();
 			$data['stores'] = DB::table('stores')->whereIn('channel_id',[1,2])->get();
-
-
-
+			$data['user_store_name'] = DB::table('stores')->where('id', $data['row']->stores_id)->pluck('bea_so_store_name')->first();
+			$data['is_pending'] = DB::table('pos_pull_headers')
+				->where('created_by', $id)
+				->whereNotin('status', ['CLOSED', 'RECEIVED'])
+				->exists();
 			
 			$this->cbView('users.users_edit',$data);
 		  }
