@@ -10,23 +10,25 @@
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
-			$this->title_field = "name";
-			$this->limit = "20";
-			$this->orderby = "id,desc";
+			// $this->limit = "20";
+			// $this->orderby = "id,desc";
+			// $this->button_table_action = true;
+			// $this->button_bulk_action = true;
+			// $this->button_add = true;
+			// $this->button_edit = true;
+			// $this->button_detail = true;
+			// $this->button_show = true;
+			// $this->button_filter = true;
+			
 			$this->global_privilege = false;
-			$this->button_table_action = true;
-			$this->button_bulk_action = true;
-			$this->button_action_style = "button_icon";
-			$this->button_add = true;
-			$this->button_edit = true;
+			$this->table               = 'cms_users';
+			$this->primary_key         = 'id';
+			$this->title_field         = "name";
+			$this->button_action_style = 'button_icon';	
+			$this->button_import 	   = false;	
+			$this->button_export 	   = false;	
 			$this->button_delete = false;
-			$this->button_detail = true;
-			$this->button_show = true;
-			$this->button_filter = true;
-			$this->button_import = false;
-			$this->button_export = false;
-			$this->table = "cms_users";
-			$this->primary_key = 'id';
+
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
@@ -104,6 +106,7 @@
 	        $this->addaction = array();
 
 
+
 	        /* 
 	        | ---------------------------------------------------------------------- 
 	        | Add More Button Selected
@@ -115,6 +118,12 @@
 	        | 
 	        */
 	        $this->button_selected = array();
+
+			if(CRUDBooster::isUpdate()) {
+				$this->button_selected[] = ["label"=>"Set Status ACTIVE ","icon"=>"fa fa-check-circle","name"=>"set_status_ACTIVE"];
+				$this->button_selected[] = ["label"=>"Set Status INACTIVE","icon"=>"fa fa-times-circle","name"=>"set_status_INACTIVE"];
+				$this->button_selected[] = ["label"=>"Reset Password","icon"=>"fa fa-refresh","name"=>"reset_password"];
+			}
 
 	                
 	        /* 
@@ -150,7 +159,7 @@
 	        | @color = Default is none. You can use bootstrap success,info,warning,danger,primary.        
 	        | 
 	        */
-	        $this->table_row_color = array();     	          
+	        $this->table_row_color = array();     	
 
 	        
 	        /*
@@ -247,6 +256,29 @@
 	    */
 	    public function actionButtonSelected($id_selected,$button_name) {
 	        //Your code here
+			switch ($button_name) {
+				case 'set_status_ACTIVE':
+					DB::table('cms_users')->whereIn('id',$id_selected)->update([
+						'status'=>'ACTIVE', 
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					break;
+				case 'set_status_INACTIVE':
+					DB::table('cms_users')->whereIn('id',$id_selected)->update([
+						'status'=>'INACTIVE', 
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					break;
+				case 'reset_password':
+					DB::table('cms_users')->whereIn('id',$id_selected)->update([
+						'password'=>bcrypt('qwerty'),
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					break;
+				default:
+					# code...
+					break;
+			}    
 	            
 	    }
 
@@ -278,6 +310,15 @@
 				
 				foreach ($storeLists as $value) {
 					$col_values .= '<span stye="display: block;" class="label label-info">'.$value.'</span><br>';
+				}
+				$column_value = $col_values;
+			}
+
+			if($column_index == 7){
+				if($column_value == 'ACTIVE'){
+					$col_values = '<span stye="display: block;" class="label label-success">'.$column_value.'</span><br>';
+				} else{
+					$col_values = '<span stye="display: block;" class="label label-danger">'.$column_value.'</span><br>';
 				}
 				$column_value = $col_values;
 			}
@@ -384,7 +425,33 @@
 			
 			//Please use view method instead view method from laravel
 			return $this->cbView('users.users_add',$data);
-		  }
+		}
+
+		public function getDetail($id) {
+			//Create an Auth
+			if(!CRUDBooster::isRead() && $this->global_privilege==FALSE || $this->button_edit==FALSE) {    
+			  CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
+			
+			$data = [];
+			$data['page_title'] = 'Detail Store User';
+			$data['row'] = DB::table('cms_users as user')
+						  ->join('cms_privileges as privilege', 'privilege.id', 'user.id_cms_privileges')
+						  ->join('channel', 'channel.id', 'user.channel_id')
+						  ->join('stores', 'stores.id', 'user.stores_id')
+						  ->select([
+							'user.name',
+							'user.email',
+							'user.photo',
+							'privilege.name as privilege',
+							'channel.channel_description',
+							'stores.bea_so_store_name',
+						  ])
+						  ->where('user.id',$id)->first();
+			
+			//Please use cbView method instead view method from laravel
+			$this->cbView('users.users_view',$data);
+		}
 
 	    //By the way, you can still create your own method in here... :) 
 

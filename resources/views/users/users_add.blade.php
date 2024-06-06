@@ -5,22 +5,25 @@
   <div class='panel panel-default'>
     <div class='panel-heading'>Add Store User</div>
     <div class='panel-body' style="padding: 20px" >
-    
       <form class="form-horizontal" method='post' action='{{CRUDBooster::mainpath('add-save')}}' enctype="multipart/form-data">
         <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
+
         <div class="box-body">
           <div class='form-group'>
             <label for="name">Name</label>
             <input type='text' name='name' id="name" required class='form-control'/>
           </div>
+
           <div class='form-group'>
             <label for="email">Email</label>
             <input type='email' name='email' id="email" required class='form-control'/>
           </div>
+
           <div class='form-group'>
             <label for="photo">Photo</label>
             <input type='file' name='photo' id="photo" class='form-control'/>
           </div>
+
           <div class='form-group'>
             <label for="privilege">Privilege</label>
             <select name="id_cms_privileges" id="privilege" required class='form-control'>
@@ -31,6 +34,7 @@
               @endforeach
             </select>
           </div>
+
           <div class='form-group'>
             <label for="channel">Channel</label>
             <select name="channel_id" id="channel" required class='form-control' >
@@ -40,6 +44,7 @@
               @endforeach
             </select>
           </div>
+
           <div class='form-group'>
             <label >Store</label>
             <div id="checkboxes" style="display:flex; flex-direction:column; align-items:flex-start; gap:5px; width:100%" >
@@ -58,9 +63,7 @@
           <input type='submit' class='btn btn-success' value='Create user'/>
         </div>
       
-        
       </form>
-   
     </div>
   </div>
 @endsection
