@@ -453,6 +453,25 @@
 			$this->cbView('users.users_view',$data);
 		}
 
+		  public function getEdit($id) {
+			//Create an Auth
+			if(!CRUDBooster::isUpdate() && $this->global_privilege==FALSE || $this->button_edit==FALSE) {    
+			  CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
+			
+			$data = [];
+			$data['page_title'] = 'Edit User';
+			$data['row'] = DB::table('cms_users')->where('id',$id)->first();
+			$data['privileges'] = DB::table('cms_privileges')->whereIn('id', [28,29,30,31,32])->get();
+			$data['channels'] = DB::table('channel')->whereIn('id', [1,2])->get();
+			$data['stores'] = DB::table('stores')->whereIn('channel_id',[1,2])->get();
+
+
+
+			
+			$this->cbView('users.users_edit',$data);
+		  }
+
 	    //By the way, you can still create your own method in here... :) 
 
 
