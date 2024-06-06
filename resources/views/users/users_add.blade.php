@@ -19,7 +19,7 @@
           </div>
           <div class='form-group'>
             <label for="photo">Photo</label>
-            <input type='file' name='photo' id="photo" required class='form-control'/>
+            <input type='file' name='photo' id="photo" class='form-control'/>
           </div>
           <div class='form-group'>
             <label for="privilege">Privilege</label>
