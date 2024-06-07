@@ -39,7 +39,7 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 		$this->form[] = array("label"=>"Privilege","name"=>"id_cms_privileges","type"=>"select","datatable"=>"cms_privileges,name",'required'=>true);
 		if(CRUDBooster::isSuperadmin()){
 			$this->form[] = array("label"=>"Channel","name"=>"channel_id","type"=>"select2","datatable"=>"channel,channel_description",'datatable_where'=>"status='ACTIVE'",'required'=>CRUDBooster::isSuperadmin() ? false : true);
-			$this->form[] = array("label"=>"Store","name"=>"stores_id","type"=>"check-box","datatable"=>"stores,bea_so_store_name",'datatable_where'=>"status=%27ACTIVE%27",'required'=>CRUDBooster::isSuperadmin() ? false : true, 'parent_select'=>'channel_id');						
+			$this->form[] = array("label"=>"Store","name"=>"stores_id","type"=>"checkbox","datatable"=>"stores,bea_so_store_name",'datatable_where'=>"status='ACTIVE'",'required'=>CRUDBooster::isSuperadmin() ? false : true, 'parent_select'=>'channel_id');						
 		}
 		$this->form[] = array("label"=>"Password","name"=>"password","type"=>"password","help"=>"Please leave empty if not changed");
 		# END FORM DO NOT REMOVE THIS LINE

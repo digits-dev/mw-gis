@@ -84,7 +84,7 @@
 	        | 
 	        */
 			$this->addaction = array();
-			if(!in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Warehouse","RMA"])){
+			if(!in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Warehouse","RMA", "Operations Manager", "Area Manager"])){
 				$this->addaction[] = [
 					'title'=>'Void ST',
 					'url'=>CRUDBooster::mainpath('void-st').'/[st_document_number]',
@@ -138,7 +138,7 @@
 	        | 
 	        */
 			$this->index_button = array();
-			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver","Gashapon Requestor"])){
+			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver","Gashapon Requestor", "Operations Manager", "Area Manager"])){
 				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
 			}elseif(CRUDBooster::getCurrentMethod() == 'getIndex' && in_array(CRUDBooster::myPrivilegeId(),[27])){
 				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.gis.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
@@ -295,6 +295,7 @@
 				}
 				//Area Manager, Operations Manager
 				else if (in_array(CRUDBooster::myPrivilegeId(), [31,28])){
+
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}

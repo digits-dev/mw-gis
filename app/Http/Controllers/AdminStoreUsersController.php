@@ -292,8 +292,7 @@
 	    */
 	    public function hook_query_index(&$query) {
 	        //Your code here
-			$query->whereNotNull('stores_id')->where('id_cms_privileges', '<>', 1);
-			
+			$query->whereIn('channel_id', [1,2])->where('id_cms_privileges', '<>', 1);
 	            
 	    }
 
