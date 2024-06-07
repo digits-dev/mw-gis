@@ -316,11 +316,10 @@
 
 			if($column_index == 7){
 				if($column_value == 'ACTIVE'){
-					$col_values = '<span stye="display: block;" class="label label-success">'.$column_value.'</span><br>';
+					$column_value = '<span class="label label-success">ACTIVE</span>';
 				} else{
-					$col_values = '<span stye="display: block;" class="label label-danger">'.$column_value.'</span><br>';
+					$column_value = '<span class="label label-danger">INACTIVE</span>';
 				}
-				$column_value = $col_values;
 			}
 		}
 	
