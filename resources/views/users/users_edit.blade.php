@@ -86,7 +86,7 @@ $(document).ready(function () {
 
                     if (isPending){
                         swal({
-                            title: "The user have pending transaction in the store",
+                            title: "The user have pending transaction",
                             text:"Store Name: " + userStoreName,
                             type: "info",
                             showCancelButton: false,
