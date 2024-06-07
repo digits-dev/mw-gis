@@ -1327,25 +1327,27 @@
 		public function autoRejectHandCarry(){
 			// Calculate the date and time 24 hours ago
 			$twentyFourHoursAgo = Carbon::now()->subDay();
-			$getAutoReject = DB::table('pos_pull')->whereNotNull('approved_at')
+			$getAutoReject = DB::table('pos_pull_headers')->whereNotNull('approved_at')
 			->where('transport_types_id',2)
 			->where('approved_at', '<=', $twentyFourHoursAgo)
-			->whereNotIn('status',['VOID','RECEIVED'])
+			->whereIn('status',['FOR RECEIVING'])
 			->get();
-			dd($getAutoReject);
-
-			// $voidST = app(POSPushController::class)->voidStockTransfer($st_number);
-			if($voidST['data']['record']['fresult'] == "ERROR"){
-				$error = $voidST['data']['record']['errors']['error'];
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
+		
+			foreach($getAutoReject as $st_data){
+				$voidST = app(POSPushController::class)->voidStockTransfer($st_data->st_document_number);
+				if($voidST['data']['record']['fresult'] == "ERROR"){
+					$error = $voidST['data']['record']['errors']['error'];
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
+				}
+				else{
+					DB::table('pos_pull_headers')->where('st_document_number',$st_data->st_document_number)->update([
+						'status' => self::Void,
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+				}
 			}
-			else{
-				DB::table('pos_pull')->where('st_document_number',$st_number)->update([
-					'status' => 'VOID',
-					'updated_at' => date('Y-m-d H:i:s')
-				]);
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_number.' has been voided successfully!','success')->send();
-			}
+			CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_data->st_document_number.' has been voided successfully!','success')->send();
+			
 		}
 
 		public function checkPOSStockTransfer($refcode){
