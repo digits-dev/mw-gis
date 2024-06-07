@@ -239,7 +239,7 @@
 	    */
 	    public function hook_query_index(&$query) {
 	        //Your code here
-	        if(CRUDBooster::myPrivilegeName() == "Approver" || CRUDBooster::myPrivilegeName() == "Franchise Approver"){
+	        if(in_array(CRUDBooster::myPrivilegeId(), [5,28,29,31])){
 				//get approval matrix
 				$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
 				

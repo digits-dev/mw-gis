@@ -271,10 +271,8 @@
 				if (in_array(CRUDBooster::myPrivilegeName() ,["LOG TM","LOG TL"])) {
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
 					->where('pos_pull_headers.status','FOR SCHEDULE')
-					->where('transport_types_id',1)
-					->distinct();
+					->where('transport_types_id',1);
 				}
-				
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
 					//get approval matrix
 					$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
@@ -289,41 +287,25 @@
 					$query->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList))
 						->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date');
 				} 
-				//Cashier, Customer Service, Associate, Requestor
-				else if (in_array(CRUDBooster::myPrivilegeId(),  [30,32,2])){
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-					->where('pos_pull_headers.stores_id',$store->id)
-					->where('pos_pull_headers.created_by', CRUDBooster::myId()) 
-					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
-					->distinct();
-
-				}
 				//Store Head
 				else if (CRUDBooster::myPrivilegeId() == 29){
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 					->where('pos_pull_headers.stores_id',$store->id)
-					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
-					->distinct();
-				
+					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
 				//Area Manager, Operations Manager
 				else if (in_array(CRUDBooster::myPrivilegeId(), [31,28])){
-
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
-					->distinct();
-		
+					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
-				//Others
+				//Cashier, Customer Service, Associate, Requestor
 				else{
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 					->where('pos_pull_headers.stores_id',$store->id)
-					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")')
-					->distinct();
+					->where('pos_pull_headers.created_by', CRUDBooster::myId()) 
+					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
-				
 			}
-
 			else{
 				$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date');
 			}

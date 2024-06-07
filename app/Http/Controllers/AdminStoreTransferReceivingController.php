@@ -454,8 +454,9 @@
 				->first();
 			
 			$sts = DB::table('pos_pull')
-				->where('item_code', $request->item_code)
-				->where('st_document_number', $request->st_number)
+				->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
+				->where('pos_pull.item_code', $request->item_code)
+				->where('pos_pull_headers.st_document_number', $request->st_number)
 				->first();
 
 			$serial = DB::table('serials')
@@ -493,8 +494,9 @@
 		{
 			
 			$items = DB::table('pos_pull')
-				->where('st_document_number', $request->st_number)
-				->where('has_serial',1)
+				->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
+				->where('pos_pull_headers.st_document_number', $request->st_number)
+				->where('pos_pull.has_serial',1)
 				->get();
 
 			foreach ($items as $item) {
@@ -516,8 +518,9 @@
             $data['message'] ='No item found!';
 			
 			$items = DB::table('pos_pull')
-				->where('item_code', $request->item_code)
-				->where('st_document_number', $request->st_number)
+				->where('pos_pull.item_code', $request->item_code)
+				->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
+				->where('pos_pull_headers.st_document_number', $request->st_number)
 				->first();
 					
 			if($items) {

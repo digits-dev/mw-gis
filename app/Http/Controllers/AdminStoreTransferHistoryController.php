@@ -8,6 +8,10 @@
 	use Illuminate\Http\Request;
 	use App\ApprovalMatrix;
 	use Excel;
+	use PhpOffice\PhpSpreadsheet\Spreadsheet;
+	use PhpOffice\PhpSpreadsheet\Reader\Exception;
+	use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+	use PhpOffice\PhpSpreadsheet\IOFactory;
 	use App\PosPullHeader;
 	use App\PosPullLines;
 
@@ -561,8 +565,8 @@
 			ini_set('memory_limit', '-1');
 
 			$sts_item = DB::table('pos_pull')->select(
-				'pos_pull.st_document_number as st_number',
-				'pos_pull.received_st_number',
+				'pos_pull_headers.st_document_number as st_number',
+				'pos_pull_headers.received_st_number',
 				'reason.pullout_reason',
 				'pos_pull.item_code as digits_code',
 				'items.upc_code',
@@ -571,81 +575,83 @@
 				'stores1.bea_so_store_name as destination',
 				'pos_pull.quantity as sts_quantity',
 				'transport_types.transport_type as transport_by',
-				'pos_pull.scheduled_at',
+				'pos_pull_headers.scheduled_at',
 				'scheduled_log.name as scheduled_by',
-				'pos_pull.created_at as created_date',
-				'pos_pull.received_st_date as received_date',
-				'pos_pull.status')
+				'pos_pull_headers.created_at as created_date',
+				'pos_pull_headers.received_st_date as received_date',
+				'pos_pull_headers.status')
+			->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
 			->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
-			->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-			->leftJoin('cms_users as scheduled_log', 'pos_pull.scheduled_by', '=', 'scheduled_log.id')
-			->leftJoin('reason', 'pos_pull.reason_id', '=', 'reason.id')
-			->leftJoin('stores as stores', 'pos_pull.stores_id', '=', 'stores.id')
-			->leftJoin('stores as stores1', 'pos_pull.stores_id_destination', '=', 'stores1.id');
+			->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
+			->leftJoin('cms_users as scheduled_log', 'pos_pull_headers.scheduled_by', '=', 'scheduled_log.id')
+			->leftJoin('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
+			->leftJoin('stores as stores', 'pos_pull_headers.stores_id', '=', 'stores.id')
+			->leftJoin('stores as stores1', 'pos_pull_headers.stores_id_destination', '=', 'stores1.id');
 			
-			if(sizeof($request->filter_column) != 0) {
-
+			if(!$request->filter_column) {
 				$filter_column = $request->filter_column;
-
 				$sts_item->where(function($w) use ($filter_column,$fc) {
-					foreach($filter_column as $key=>$fc) {
+					if(is_array($filter_column)){
+						foreach($filter_column as $key=>$fc) {
 
-						$value = @$fc['value'];
-						$type  = @$fc['type'];
-
-						if($type == 'empty') {
-							$w->whereNull($key)->orWhere($key,'');
-							continue;
-						}
-
-						if($value=='' || $type=='') continue;
-
-						if($type == 'between') continue;
-
-						switch($type) {
-							default:
-								if($key && $type && $value) $w->where($key,$type,$value);
-							break;
-							case 'like':
-							case 'not like':
-								$value = '%'.$value.'%';
-								if($key && $type && $value) $w->where($key,$type,$value);
-							break;
-							case 'in':
-							case 'not in':
-								if($value) {
-									$value = explode(',',$value);
-									if($key && $value) $w->whereIn($key,$value);
-								}
-							break;
+							$value = @$fc['value'];
+							$type  = @$fc['type'];
+	
+							if($type == 'empty') {
+								$w->whereNull($key)->orWhere($key,'');
+								continue;
+							}
+	
+							if($value=='' || $type=='') continue;
+	
+							if($type == 'between') continue;
+	
+							switch($type) {
+								default:
+									if($key && $type && $value) $w->where($key,$type,$value);
+								break;
+								case 'like':
+								case 'not like':
+									$value = '%'.$value.'%';
+									if($key && $type && $value) $w->where($key,$type,$value);
+								break;
+								case 'in':
+								case 'not in':
+									if($value) {
+										$value = explode(',',$value);
+										if($key && $value) $w->whereIn($key,$value);
+									}
+								break;
+							}
 						}
 					}
 				});
+				if(is_array($filter_column)){
+					foreach($filter_column as $key=>$fc) {
+						$value = @$fc['value'];
+						$type  = @$fc['type'];
+						$sorting = @$fc['sorting'];
 
-				foreach($filter_column as $key=>$fc) {
-					$value = @$fc['value'];
-					$type  = @$fc['type'];
-					$sorting = @$fc['sorting'];
-
-					if($sorting!='') {
-						if($key) {
-							$sts_item->orderby($key,$sorting);
-							$filter_is_orderby = true;
+						if($sorting!='') {
+							if($key) {
+								$sts_item->orderby($key,$sorting);
+								$filter_is_orderby = true;
+							}
 						}
-					}
 
-					if ($type=='between') {
-						if($key && $value) $sts_item->whereBetween($key,$value);
-					}
+						if ($type=='between') {
+							if($key && $value) $sts_item->whereBetween($key,$value);
+						}
 
-					else {
-						continue;
+						else {
+							continue;
+						}
 					}
 				}
 			}
 			if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
 				if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-					$sts_item->where('pos_pull.transport_types_id',1);
+					$sts_item->where('pos_pull_headers.transport_types_id',1);
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
 					//get approval matrix
@@ -659,24 +665,24 @@
 					$storeList = array_map('intval',explode(",",$approval_string));
 
 					//compare the store_list of approver to purchase header store_id
-					$sts_item->whereIn('pos_pull.stores_id', array_values((array)$storeList));
+					$sts_item->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList));
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])){
 					if(empty($store)){
-						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel());
+						$sts_item->where('pos_pull_headers.channel_id', CRUDBooster::myChannel());
 					}
 					else{
-						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel())
+						$sts_item->where('pos_pull_headers.channel_id', CRUDBooster::myChannel())
 						->where(function($subquery) use ($store) {
-							$subquery->whereIn('pos_pull.stores_id',CRUDBooster::myStore())->orWhere('pos_pull.wh_to',$store->pos_warehouse);
+							$subquery->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())->orWhere('pos_pull_headers.wh_to',$store->pos_warehouse);
 						});
 					}
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
-					$sts_item->whereIn('pos_pull.channel_id', [1,2]);
+					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2]);
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
-					$sts_item->whereIn('pos_pull.channel_id', [1,2,4]);
+					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2,4]);
 				}
 				else{
 					
@@ -686,10 +692,10 @@
 					});
 				}
 			}
-			$sts_item->orderBy('pos_pull.st_document_number', 'asc');
+			$sts_item->orderBy('pos_pull_headers.st_document_number', 'asc');
 			$stsItems = $sts_item->get();
 			
-			$headings = array('ST #',
+			$items_array[] = array('ST #',
 				'RECEIVED ST #',
 				'REASON',
 				'DIGITS CODE',
@@ -705,43 +711,44 @@
 				'STATUS');
 
 			foreach($stsItems as $item) {
-
 				$items_array[] = array(
-					$item->st_number,
-					$item->received_st_number,
-					$item->pullout_reason,
-					$item->digits_code,	
-					'="'.$item->upc_code.'"',			
-					$item->item_description,	
-					$item->source,
-					$item->destination,
-					$item->sts_quantity,
-					$item->transport_by,
-					(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
-					$item->created_date,
-					$item->received_date,
-					$item->status
+					'ST #' => $item->st_number,
+					'RECEIVED ST #' => $item->received_st_number,
+					'REASON' => $item->pullout_reason,
+					'DIGITS CODE' => $item->digits_code,	
+					'UPC CODE' => '="'.$item->upc_code.'"',			
+					'ITEM DESCRIPTION' => $item->item_description,	
+					'SOURCE' => $item->source,
+					'DESTINATION' => $item->destination,
+					'QTY' => $item->sts_quantity,
+					'TRANSPORT BY' => $item->transport_by,
+					'SCHEDULED DATE/BY' => (!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
+					'CREATED DATE' => $item->created_date,
+					'RECEIVED DATE' => $item->received_date,
+					'STATUS' => $item->status
 				);
 			}
 
 			ini_set('max_execution_time', 0);
-			Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
-				$excel->sheet('sts', function($sheet) use ($headings, $items_array){
-					// Set auto size for sheet
-					$sheet->setAutoSIZE(true);
-					$sheet->setColumnFormat(array(
-						'D' => '@',
-					));
+			$filename = 'Export STS - '.date("Ymd H:i:sa");
+			self::ExportExcel($items_array, $filename);
+			// Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
+			// 	$excel->sheet('sts', function($sheet) use ($headings, $items_array){
+			// 		// Set auto size for sheet
+			// 		$sheet->setAutoSIZE(true);
+			// 		$sheet->setColumnFormat(array(
+			// 			'D' => '@',
+			// 		));
 					
-					$sheet->fromArray($items_array, null, 'A1', false, false);
-					$sheet->prependRow(1, $headings);
-					$sheet->row(1, function($row) {
-						$row->setBackground('#FFFF00');
-						$row->setAlignment('center');
-					});
+			// 		$sheet->fromArray($items_array, null, 'A1', false, false);
+			// 		$sheet->prependRow(1, $headings);
+			// 		$sheet->row(1, function($row) {
+			// 			$row->setBackground('#FFFF00');
+			// 			$row->setAlignment('center');
+			// 		});
 					
-				});
-			})->export('xlsx');
+			// 	});
+			// })->export('xlsx');
 		}
 
 		public function exportSTSSerialized(Request $request)
@@ -750,8 +757,8 @@
 			ini_set('memory_limit', '-1');
 
 			$sts_item = DB::table('pos_pull')->select(
-				'pos_pull.st_document_number as st_number',
-				'pos_pull.received_st_number',
+				'pos_pull_headers.st_document_number as st_number',
+				'pos_pull_headers.received_st_number',
 				'reason.pullout_reason',
 				'pos_pull.item_code as digits_code',
 				'items.upc_code',
@@ -761,82 +768,84 @@
 				'pos_pull.quantity as sts_quantity',
 				'serials.serial_number',
 				'transport_types.transport_type as transport_by',
-				'pos_pull.scheduled_at',
+				'pos_pull_headers.scheduled_at',
 				'scheduled_log.name as scheduled_by',
-				'pos_pull.created_at as created_date',
-				'pos_pull.received_st_date as received_date',
-				'pos_pull.status')
+				'pos_pull_headers.created_at as created_date',
+				'pos_pull_headers.received_st_date as received_date',
+				'pos_pull_headers.status')
+			->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
 			->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
-			->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-			->leftJoin('cms_users as scheduled_log', 'pos_pull.scheduled_by', '=', 'scheduled_log.id')
-			->leftJoin('reason', 'pos_pull.reason_id', '=', 'reason.id')
+			->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
+			->leftJoin('cms_users as scheduled_log', 'pos_pull_headers.scheduled_by', '=', 'scheduled_log.id')
+			->leftJoin('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
 			->leftJoin('serials', 'pos_pull.id', '=', 'serials.pos_pull_id')
-			->leftJoin('stores', 'pos_pull.stores_id', '=', 'stores.id')
-			->leftJoin('stores as stores1', 'pos_pull.stores_id_destination', '=', 'stores1.id');
+			->leftJoin('stores as stores', 'pos_pull_headers.stores_id', '=', 'stores.id')
+			->leftJoin('stores as stores1', 'pos_pull_headers.stores_id_destination', '=', 'stores1.id');
 			
-			if(sizeof($request->filter_column) != 0) {
-
+			if(!$request->filter_column) {
 				$filter_column = $request->filter_column;
-
 				$sts_item->where(function($w) use ($filter_column,$fc) {
-					foreach($filter_column as $key=>$fc) {
+					if(is_array($filter_column)){
+						foreach($filter_column as $key=>$fc) {
 
-						$value = @$fc['value'];
-						$type  = @$fc['type'];
-
-						if($type == 'empty') {
-							$w->whereNull($key)->orWhere($key,'');
-							continue;
-						}
-
-						if($value=='' || $type=='') continue;
-
-						if($type == 'between') continue;
-
-						switch($type) {
-							default:
-								if($key && $type && $value) $w->where($key,$type,$value);
-							break;
-							case 'like':
-							case 'not like':
-								$value = '%'.$value.'%';
-								if($key && $type && $value) $w->where($key,$type,$value);
-							break;
-							case 'in':
-							case 'not in':
-								if($value) {
-									$value = explode(',',$value);
-									if($key && $value) $w->whereIn($key,$value);
-								}
-							break;
+							$value = @$fc['value'];
+							$type  = @$fc['type'];
+	
+							if($type == 'empty') {
+								$w->whereNull($key)->orWhere($key,'');
+								continue;
+							}
+	
+							if($value=='' || $type=='') continue;
+	
+							if($type == 'between') continue;
+	
+							switch($type) {
+								default:
+									if($key && $type && $value) $w->where($key,$type,$value);
+								break;
+								case 'like':
+								case 'not like':
+									$value = '%'.$value.'%';
+									if($key && $type && $value) $w->where($key,$type,$value);
+								break;
+								case 'in':
+								case 'not in':
+									if($value) {
+										$value = explode(',',$value);
+										if($key && $value) $w->whereIn($key,$value);
+									}
+								break;
+							}
 						}
 					}
 				});
+				if(is_array($filter_column)){
+					foreach($filter_column as $key=>$fc) {
+						$value = @$fc['value'];
+						$type  = @$fc['type'];
+						$sorting = @$fc['sorting'];
 
-				foreach($filter_column as $key=>$fc) {
-					$value = @$fc['value'];
-					$type  = @$fc['type'];
-					$sorting = @$fc['sorting'];
-
-					if($sorting!='') {
-						if($key) {
-							$sts_item->orderby($key,$sorting);
-							$filter_is_orderby = true;
+						if($sorting!='') {
+							if($key) {
+								$sts_item->orderby($key,$sorting);
+								$filter_is_orderby = true;
+							}
 						}
-					}
 
-					if ($type=='between') {
-						if($key && $value) $sts_item->whereBetween($key,$value);
-					}
+						if ($type=='between') {
+							if($key && $value) $sts_item->whereBetween($key,$value);
+						}
 
-					else {
-						continue;
+						else {
+							continue;
+						}
 					}
 				}
 			}
 			if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
 				if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-					$sts_item->where('pos_pull.transport_types_id',1);
+					$sts_item->where('pos_pull_headers.transport_types_id',1);
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Approver","Franchise Approver"])){
 					//get approval matrix
@@ -850,24 +859,24 @@
 					$storeList = array_map('intval',explode(",",$approval_string));
 
 					//compare the store_list of approver to purchase header store_id
-					$sts_item->whereIn('pos_pull.stores_id', array_values((array)$storeList));
+					$sts_item->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList));
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])){
 					if(empty($store)){
-						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel());
+						$sts_item->where('pos_pull_headers.channel_id', CRUDBooster::myChannel());
 					}
 					else{
-						$sts_item->where('pos_pull.channel_id', CRUDBooster::myChannel())
+						$sts_item->where('pos_pull_headers.channel_id', CRUDBooster::myChannel())
 						->where(function($subquery) use ($store) {
-							$subquery->whereIn('pos_pull.stores_id',CRUDBooster::myStore())->orWhere('pos_pull.wh_to',$store->pos_warehouse);
+							$subquery->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())->orWhere('pos_pull_headers.wh_to',$store->pos_warehouse);
 						});
 					}
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
-					$sts_item->whereIn('pos_pull.channel_id', [1,2]);
+					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2]);
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
-					$sts_item->whereIn('pos_pull.channel_id', [1,2,4]);
+					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2,4]);
 				}
 				else {
 					$sts_item->where(function($subquery) use ($store) {
@@ -876,10 +885,10 @@
 					});
 				}
 			}
-			$sts_item->orderBy('pos_pull.st_document_number', 'asc');
+			$sts_item->orderBy('pos_pull_headers.st_document_number', 'asc');
 			$stsItems = $sts_item->get();
 			
-			$headings = array('ST #',
+			$items_array[] = array('ST #',
 				'RECEIVED ST #',
 				'REASON',
 				'DIGITS CODE',
@@ -896,45 +905,64 @@
 				'STATUS');
 
 			foreach($stsItems as $item) {
-
 				$items_array[] = array(
-					$item->st_number,
-					$item->received_st_number,
-					$item->pullout_reason,
-					$item->digits_code,	
-					'="'.$item->upc_code.'"',			
-					$item->item_description,	
-					$item->source,
-					$item->destination,
-					(empty($item->serial_number)) ? $item->sts_quantity : 1,
-					$item->serial_number,
-					$item->transport_by,
-					(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
-					$item->created_date,
-					$item->received_date,
-					$item->status
+					'ST #' => $item->st_number,
+					'RECEIVED ST #' => $item->received_st_number,
+					'REASON' => $item->pullout_reason,
+					'DIGITS CODE' => $item->digits_code,
+					'UPC CODE' => '="' . $item->upc_code . '"',
+					'ITEM DESCRIPTION' => $item->item_description,
+					'SOURCE' => $item->source,
+					'DESTINATION' => $item->destination,
+					'QTY' => (empty($item->serial_number)) ? $item->sts_quantity : 1,
+					'SERIAL #' => $item->serial_number,
+					'TRANSPORT BY' => $item->transport_by,
+					'SCHEDULED DATE/BY' => (!empty($item->scheduled_at)) ? $item->scheduled_at . ' - ' . $item->scheduled_by : '',
+					'CREATED DATE' => $item->created_date,
+					'RECEIVED DATE' => $item->received_date,
+					'STATUS' => $item->status
 				);
 			}
 
 			ini_set('max_execution_time', 0);
-			Excel::create('Export STS with Serial- '.date("Ymd H:i:sa"), function($excel) use ($headings,$items_array){
-				$excel->sheet('sts-serial', function($sheet) use ($headings,$items_array){
-					// Set auto size for sheet
-					$sheet->setAutoSIZE(true);
-					$sheet->setColumnFormat(array(
-						'D' => '@',
-					));
+			$filename = 'Export STS with Serial- '.date("Ymd H:i:sa");
+			self::ExportExcel($items_array, $filename);
+			// Excel::create('Export STS with Serial- '.date("Ymd H:i:sa"), function($excel) use ($headings,$items_array){
+			// 	$excel->sheet('sts-serial', function($sheet) use ($headings,$items_array){
+			// 		// Set auto size for sheet
+			// 		$sheet->setAutoSIZE(true);
+			// 		$sheet->setColumnFormat(array(
+			// 			'D' => '@',
+			// 		));
 					
-					$sheet->fromArray($items_array, null, 'A1', false, false);
-					$sheet->prependRow(1, $headings);
-					$sheet->row(1, function($row) {
-						$row->setBackground('#FFFF00');
-						$row->setAlignment('center');
-					});
+			// 		$sheet->fromArray($items_array, null, 'A1', false, false);
+			// 		$sheet->prependRow(1, $headings);
+			// 		$sheet->row(1, function($row) {
+			// 			$row->setBackground('#FFFF00');
+			// 			$row->setAlignment('center');
+			// 		});
 					
-				});
-			})->export('xlsx');
+			// 	});
+			// })->export('xlsx');
 		}
 
+		public function ExportExcel($data,$filename){
+			ini_set('max_execution_time', 0);
+			ini_set('memory_limit', '4000M');
+			try {
+				$spreadSheet = new Spreadsheet();
+				$spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(20);
+				$spreadSheet->getActiveSheet()->fromArray($data);
+				$Excel_writer = new Xlsx($spreadSheet);
+				header('Content-Type: application/vnd.ms-excel');
+				header('Content-Disposition: attachment;filename="'.$filename.'.xlsx"');
+				header('Cache-Control: max-age=0');
+				ob_end_clean();
+				$Excel_writer->save('php://output');
+				exit();
+			} catch (Exception $e) {
+				return;
+			}
+		}
 
 	}
