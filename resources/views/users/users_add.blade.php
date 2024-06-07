@@ -76,11 +76,11 @@ $(document).ready(function () {
         let parentId = $(this).val();
         if (parentId) {
             $.get('/get-child-options/' + parentId, function(response) {
-                console.log(response);
+                // console.log(response);
                 var childCheckboxes = $('#checkboxes');
                 childCheckboxes.empty(); 
                 childCheckboxes.show(); 
-                $.each(response, function(index, option) {
+                $.each(response.childOptions, function(index, option) {
                     var checkbox = $('<input>').attr({
                         type: 'checkbox',
                         name: 'stores_id', 
