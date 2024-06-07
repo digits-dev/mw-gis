@@ -42,7 +42,7 @@ table.table.table-bordered th {
         </div>
 
         <div class='panel-body'>
-            <form action="{{ route('saveReviewST') }}" method="POST" id="approval_st" autocomplete="off" role="form" enctype="multipart/form-data">
+            <form action="{{ route('saveConfirmST') }}" method="POST" id="approval_st" autocomplete="off" role="form" enctype="multipart/form-data">
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
             <input type="hidden" value="" name="approval_action" id="approval_action">
             <input type="hidden" name="transport_type" id="transport_type" value="{{$stDetails->transport_type}}" >
