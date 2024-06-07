@@ -44,6 +44,7 @@
 			$this->col[] = ["label"=>"From WH","name"=>"stores_id","join"=>"stores,pos_warehouse_name"];
 			$this->col[] = ["label"=>"To WH","name"=>"stores_id_destination","join"=>"stores,pos_warehouse_name"];
 			$this->col[] = ["label"=>"Status","name"=>"status"];
+			$this->col[] = ["label"=>"Created By","name"=>"created_by","join"=>"cms_users,name"];
 			$this->col[] = ["label"=>"Created Date","name"=>"created_date"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
