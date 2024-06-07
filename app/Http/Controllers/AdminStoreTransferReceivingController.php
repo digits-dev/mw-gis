@@ -6,8 +6,16 @@
 	use Illuminate\Support\Facades\Input;
 	use Illuminate\Support\Facades\File;
 	use Illuminate\Http\Request;
+	use App\PosPullHeader;
+	use App\PosPullLines;
 
 	class AdminStoreTransferReceivingController extends \crocodicstudio\crudbooster\controllers\CBController {
+		private const Pending = 'PENDING';
+		private const Void    = 'VOID';
+		private const ForSchedule  = 'FOR SCHEDULE';
+		private const ForReceiving = 'FOR RECEIVING';
+		private const Confirmed = 'CONFIRMED';
+		private const Received = 'RECIEVED';
 
 	    public function cbInit() {
 
@@ -27,7 +35,7 @@
 			$this->button_filter = true;
 			$this->button_import = false;
 			$this->button_export = false;
-			$this->table = "pos_pull";
+			$this->table = "pos_pull_headers";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
@@ -234,22 +242,22 @@
 				
 				if(CRUDBooster::myPrivilegeName() != "Online WSDM") {
 					if(CRUDBooster::myPrivilegeName() == "Online Ops") {
-						$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status')
-						->where('pos_pull.channel_id', CRUDBooster::myChannel())->where('pos_pull.status','FOR RECEIVING')->distinct();   
+						$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
+						->where('pos_pull_headers.channel_id', CRUDBooster::myChannel())->where('pos_pull_headers.status',self::ForReceiving);   
 					}
 					else{
-						$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status')
-						->whereIn('pos_pull.stores_id_destination', CRUDBooster::myStore())->where('pos_pull.status','FOR RECEIVING')->distinct();   
+						$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
+						->whereIn('pos_pull_headers.stores_id_destination', CRUDBooster::myStore())->where('pos_pull_headers.status',self::ForReceiving);   
 					}
 				}
 				else{
-					$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status')
-					->whereIn('pos_pull.stores_id', CRUDBooster::myStore())->where('pos_pull.status','FOR RECEIVING')->distinct();   
+					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
+					->whereIn('pos_pull_headers.stores_id', CRUDBooster::myStore())->where('pos_pull_headers.status',self::ForReceiving);   
 				}
 			}  
 			else{
-				$query->select('pos_pull.st_document_number','pos_pull.wh_from','pos_pull.wh_to','pos_pull.status')
-				->where('pos_pull.status','FOR RECEIVING')->distinct();   
+				$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
+				->where('pos_pull_headers.status',self::ForReceiving);   
 			}
 			
 			
@@ -264,11 +272,11 @@
 	    public function hook_row_index($column_index,&$column_value) {	        
 	    	//Your code here
 			if($column_index == 4){
-				if($column_value == "PENDING"){
-					$column_value = '<span class="label label-warning">PENDING</span>';
+				if($column_value == self::Pending){
+					$column_value = '<span class="label label-warning">'.self::Pending.'</span>';
 				}
-				else if($column_value == "FOR SCHEDULE"){
-					$column_value = '<span class="label label-warning">FOR SCHEDULE</span>';
+				else if($column_value == self::ForSchedule){
+					$column_value = '<span class="label label-warning">'.self::ForSchedule.'</span>';
 				}
 				else if($column_value == "FOR RECEIVING"){
 					$column_value = '<span class="label label-warning">FOR RECEIVING</span>';
@@ -358,32 +366,15 @@
 		public function getReceiving($st_number)
 		{
 			$this->cbLoader();
-
 			$data = array();
-			
 			$data['page_title'] = 'Receive STS';
-
-			$data['stDetails'] = DB::table('pos_pull')
-			->join('reason', 'pos_pull.reason_id', '=', 'reason.id')
-			->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-			->select('pos_pull.*','reason.pullout_reason','transport_types.transport_type')
-			->where('st_document_number', $st_number)->get();
-
-			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id)->first();
-
-			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id_destination)->first();
-
-			$items = DB::table('pos_pull')
-			->where('st_document_number',$st_number)
-			->select('id','item_code','quantity','item_description')
-			->get();
-
-			$data['stQuantity'] =  DB::table('pos_pull')
-			->where('st_document_number', $st_number)
-			->sum('quantity');
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
 
 			foreach ($items as $key => $value) {
-
 				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
 
@@ -418,33 +409,15 @@
 		public function getDetail($st_number)
 		{
 			$this->cbLoader();
-
 			$data = array();
-			
 			$data['page_title'] = 'Stock Transfer Details';
-
-			$data['stDetails'] = DB::table('pos_pull')
-				->join('reason', 'pos_pull.reason_id', '=', 'reason.id')
-				->leftJoin('transport_types', 'pos_pull.transport_types_id', '=', 'transport_types.id')
-				->where('st_document_number', $st_number)
-				->select('pos_pull.*','reason.pullout_reason','transport_types.transport_type')
-				->get();
-
-			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id)->first();
-
-			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails'][0]->stores_id_destination)->first();
-
-			$items = DB::table('pos_pull')
-			->where('st_document_number',$st_number)
-			->select('id','item_code','quantity')
-			->get();
-
-			$data['stQuantity'] =  DB::table('pos_pull')
-			->where('st_document_number', $st_number)
-			->sum('quantity');
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
 
 			foreach ($items as $key => $value) {
-
 				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
 
@@ -464,7 +437,6 @@
 			}
 
 			$data['items'] = $item_data;
-			
 			return view("stock-transfer.detail", $data);
 		}
 
@@ -748,7 +720,7 @@
 		
 		public function saveSTSReceiving(Request $request)
 		{
-		    $isGisSt = DB::table('pos_pull')->where('st_document_number',$request->st_number)->first();
+		    $isGisSt = DB::table('pos_pull_headers')->where('st_document_number',$request->st_number)->first();
 			if(!$isGisSt->location_id_from){
 				$posItemDetails = array();
 				foreach ($request->digits_code as $key_item => $value_item) {
@@ -787,8 +759,8 @@
 					$record = false;
 					$st_number = $postedST['data']['record']['fdocument_no'];
 					if($postedST['data']['record']['fresult'] != "ERROR"){
-						DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
-							'status' => 'RECEIVED',
+						DB::table('pos_pull_headers')->where('st_document_number', $request->st_number)->update([
+							'status' => self::Received,
 							'received_st_number' => $st_number,
 							'received_st_date' => date('Y-m-d'),
 							'updated_at' => date('Y-m-d H:i:s')
@@ -807,15 +779,15 @@
 					CRUDBooster::redirect(CRUDBooster::mainpath(),$postedST['data']['record']['errors']['error'].'. ST# '.$request->st_number.' failed to be received!','danger')->send();
 				}
 			}else{
-				$items = DB::table('pos_pull')->where('st_document_number',$request->st_number)->get();
+				$items = DB::table('pos_pull')->where('pos_pull_header_id',$isGisSt->id)->get();
 				$to_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 					->where('location_id',$isGisSt->location_id_to)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 				
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 					->where('location_id',$isGisSt->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
 				
-					DB::table('pos_pull')->where('st_document_number', $request->st_number)->update([
-					'status'      => 'RECEIVED',
+					DB::table('pos_pull_headers')->where('st_document_number', $request->st_number)->update([
+					'status'      => self::Received,
 					'received_by' => CRUDBooster::myId(),
 					'received_at' => date('Y-m-d H:i:s'),
 					'updated_at'  => date('Y-m-d H:i:s')
@@ -828,19 +800,19 @@
 					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
 					->where([
 						'items.digits_code' => $item->item_code,
-						'inventory_capsules.locations_id' => $item->location_id_to
+						'inventory_capsules.locations_id' => $isGisSt->location_id_to
 					])
-					->where('inventory_capsule_lines.sub_locations_id',$item->sub_location_id_to)
+					->where('inventory_capsule_lines.sub_locations_id',$isGisSt->sub_location_id_to)
 					->exists();
 					if(!$isToLocationExist){
 						$capsules = DB::connection('gis')->table('inventory_capsules')->insertGetId([
 							'item_code' => $item_master->digits_code2,
-							'locations_id' => $item->location_id_to
+							'locations_id' => $isGisSt->location_id_to
 						]);
 						
 						DB::connection('gis')->table('inventory_capsule_lines')->insert([
 							'inventory_capsules_id' => $capsules,
-							'sub_locations_id' => $item->sub_location_id_to,
+							'sub_locations_id' => $isGisSt->sub_location_id_to,
 							'qty' => $item->quantity,
 							'created_at' => date('Y-m-d H:i:s')
 						]);
@@ -850,9 +822,9 @@
 						->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
 						->where([
 							'items.digits_code' => $item->item_code,
-							'inventory_capsules.locations_id' => $item->location_id_to
+							'inventory_capsules.locations_id' => $isGisSt->location_id_to
 						])
-						->where('inventory_capsule_lines.sub_locations_id',$item->sub_location_id_to)
+						->where('inventory_capsule_lines.sub_locations_id',$isGisSt->sub_location_id_to)
 						->update([
 							'qty' => DB::raw("qty + $item->quantity"),
 							'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
@@ -865,7 +837,7 @@
 					->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
 					->where([
 						'items.digits_code' => $item->item_code,
-						'inventory_capsules.locations_id' => $item->location_id_from
+						'inventory_capsules.locations_id' => $isGisSt->location_id_from
 					])
 					->where('inventory_capsule_lines.sub_locations_id',$from_intransit_gis_sub_location->id)
 					->update([
@@ -883,8 +855,8 @@
 						'reference_number' => $request->st_number,
 						'item_code' => $item_code->digits_code2,
 						'capsule_action_types_id' => $capsuleAction->id,
-						'locations_id' => $item->location_id_to,
-						'from_sub_locations_id' => $item->sub_location_id_to,
+						'locations_id' => $isGisSt->location_id_to,
+						'from_sub_locations_id' => $isGisSt->sub_location_id_to,
 						'to_sub_locations_id' => $from_intransit_gis_sub_location->id,
 						'qty' =>$item->quantity,
 						'created_at' => date('Y-m-d H:i:s'),
@@ -894,9 +866,9 @@
 						'reference_number' => $request->st_number,
 						'item_code' => $item_code->digits_code2,
 						'capsule_action_types_id' => $capsuleAction->id,
-						'locations_id' => $item->location_id_to,
+						'locations_id' => $isGisSt->location_id_to,
 						'from_sub_locations_id' => $from_intransit_gis_sub_location->id,
-						'to_sub_locations_id' => $item->sub_location_id_to,
+						'to_sub_locations_id' => $isGisSt->sub_location_id_to,
 						'qty' => -1 * abs($item->quantity),
 						'created_at' => date('Y-m-d H:i:s'),
 						'created_by' => $gis_mw_name->id

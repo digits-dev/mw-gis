@@ -38,7 +38,7 @@ table.table.table-bordered th {
 
     <div class='panel panel-default'>
         <div class='panel-heading'>  
-        <h3 class="box-title text-center"><b>Review Stock Transfer</b></h3>
+        <h3 class="box-title text-center"><b>Confirm Stock Transfer</b></h3>
         </div>
 
         <div class='panel-body'>
@@ -46,6 +46,7 @@ table.table.table-bordered th {
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
             <input type="hidden" value="" name="approval_action" id="approval_action">
             <input type="hidden" name="transport_type" id="transport_type" value="{{$stDetails->transport_type}}" >
+            <input type="hidden" name="header_id" id="header_id" value="{{$stDetails->id}}" >
 
             <div class="col-md-4">
                 <div class="table-responsive">
@@ -191,7 +192,7 @@ table.table.table-bordered th {
         <div class='panel-footer'>
             <a href="{{ CRUDBooster::mainpath() }}" class="btn btn-default">{{ trans('message.form.back') }}</a>
             <button class="btn btn-danger pull-right" type="button" id="btnReject" style="margin-left: 5px;"> <i class="fa fa-thumbs-down" ></i> Reject</button>
-            <button class="btn btn-success pull-right" type="button" id="btnApprove"> <i class="fa fa-thumbs-up" ></i> Approve</button>
+            <button class="btn btn-success pull-right" type="button" id="btnApprove"> <i class="fa fa-thumbs-up" ></i> Confirm</button>
             
         </div>
         </form>

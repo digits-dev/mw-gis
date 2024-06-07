@@ -1,11 +1,20 @@
 <?php namespace App\Http\Controllers;
 
 	use Session;
-	use Request;
 	use DB;
 	use CRUDBooster;
+	use Illuminate\Support\Facades\Input;
+	use Illuminate\Support\Facades\File;
+	use Illuminate\Http\Request;
+	use App\PosPullHeader;
+	use App\PosPullLines;
 
 	class AdminStoreTransferConfirmationController extends \crocodicstudio\crudbooster\controllers\CBController {
+		private const Pending = 'PENDING';
+		private const Void = 'VOID';
+		private const ForSchedule = 'FOR SCHEDULE';
+		private const ForReceiving = 'FOR RECEIVING';
+		private const Confirmed = 'CONFIRMED';
 
 	    public function cbInit() {
 
@@ -15,75 +24,34 @@
 			$this->orderby = "id,desc";
 			$this->global_privilege = false;
 			$this->button_table_action = true;
-			$this->button_bulk_action = true;
+			$this->button_bulk_action = false;
 			$this->button_action_style = "button_icon";
-			$this->button_add = true;
-			$this->button_edit = true;
+			$this->button_add = false;
+			$this->button_edit = false;
 			$this->button_delete = false;
-			$this->button_detail = true;
+			$this->button_detail = false;
 			$this->button_show = true;
 			$this->button_filter = true;
 			$this->button_import = false;
-			$this->button_export = false;
+			$this->button_export = true;
 			$this->table = "pos_pull_headers";
 			# END CONFIGURATION DO NOT REMOVE THIS LINE
 
 			# START COLUMNS DO NOT REMOVE THIS LINE
 			$this->col = [];
-			$this->col[] = ["label"=>"Approved At","name"=>"approved_at"];
-			$this->col[] = ["label"=>"Approved By","name"=>"approved_by"];
-			$this->col[] = ["label"=>"Approver Comments","name"=>"approver_comments"];
-			$this->col[] = ["label"=>"Channel Id","name"=>"channel_id","join"=>"channel,id"];
-			$this->col[] = ["label"=>"Confirmed At","name"=>"confirmed_at"];
-			$this->col[] = ["label"=>"Confirmed By","name"=>"confirmed_by"];
-			$this->col[] = ["label"=>"Created By","name"=>"created_by"];
+			$this->col[] = ["label"=>"ST #","name"=>"st_document_number"];
+			$this->col[] = ["label"=>"From WH","name"=>"stores_id","join"=>"stores,pos_warehouse_name"];
+			$this->col[] = ["label"=>"To WH","name"=>"stores_id_destination","join"=>"stores,pos_warehouse_name"];
+			$this->col[] = ["label"=>"Status","name"=>"status"];
+			$this->col[] = ["label"=>"Transport Type","name"=>"transport_types_id","join"=>"transport_types,transport_type"];
+			$this->col[] = ["label"=>"Reason","name"=>"reason_id","join"=>"reason,pullout_reason"];
+			$this->col[] = ["label"=>"Created Date","name"=>"created_date"];
 			# END COLUMNS DO NOT REMOVE THIS LINE
 
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
 
 			# END FORM DO NOT REMOVE THIS LINE
-
-			# OLD START FORM
-			//$this->form = [];
-			//$this->form[] = ["label"=>"Approved At","name"=>"approved_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Approved By","name"=>"approved_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Approver Comments","name"=>"approver_comments","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Channel Id","name"=>"channel_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"channel,id"];
-			//$this->form[] = ["label"=>"Confirmed At","name"=>"confirmed_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Confirmed By","name"=>"confirmed_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Created By","name"=>"created_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Created Date","name"=>"created_date","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"File Name","name"=>"file_name","type"=>"textarea","required"=>TRUE,"validation"=>"required|string|min:5|max:5000"];
-			//$this->form[] = ["label"=>"Hand Carrier","name"=>"hand_carrier","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Location From","name"=>"location_id_from","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Location To","name"=>"location_id_to","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Log Printed At","name"=>"log_printed_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Log Printed By","name"=>"log_printed_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Memo","name"=>"memo","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Reason Id","name"=>"reason_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"reason,id"];
-			//$this->form[] = ["label"=>"Received At","name"=>"received_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Received By","name"=>"received_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Received St Date","name"=>"received_st_date","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Received St Number","name"=>"received_st_number","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Reference Number","name"=>"reference_number","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Rejected At","name"=>"rejected_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Rejected By","name"=>"rejected_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Schedule At","name"=>"schedule_at","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Schedule By","name"=>"schedule_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"St Document Number","name"=>"st_document_number","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"St Status Id","name"=>"st_status_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"st_status,id"];
-			//$this->form[] = ["label"=>"Status","name"=>"status","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Stores Id","name"=>"stores_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"stores,bea_mo_store_name"];
-			//$this->form[] = ["label"=>"Stores Destination","name"=>"stores_id_destination","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Sub Location From","name"=>"sub_location_id_from","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Sub Location To","name"=>"sub_location_id_to","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Transfer Date","name"=>"transfer_date","type"=>"datetime","required"=>TRUE,"validation"=>"required|date_format:Y-m-d H:i:s"];
-			//$this->form[] = ["label"=>"Transport Types Id","name"=>"transport_types_id","type"=>"select2","required"=>TRUE,"validation"=>"required|integer|min:0","datatable"=>"transport_types,id"];
-			//$this->form[] = ["label"=>"Updated By","name"=>"updated_by","type"=>"number","required"=>TRUE,"validation"=>"required|integer|min:0"];
-			//$this->form[] = ["label"=>"Wh From","name"=>"wh_from","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			//$this->form[] = ["label"=>"Wh To","name"=>"wh_to","type"=>"text","required"=>TRUE,"validation"=>"required|min:1|max:255"];
-			# OLD END FORM
 
 			/* 
 	        | ---------------------------------------------------------------------- 
@@ -112,7 +80,8 @@
 	        | 
 	        */
 	        $this->addaction = array();
-
+			$this->addaction[] = ['title'=>'Confirm','url'=>CRUDBooster::mainpath('confirm').'/[st_document_number]','icon'=>'fa fa-thumbs-up','color'=>'info','showIf'=>"[status]==".self::Pending.""];
+			$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('details').'/[st_document_number]','icon'=>'fa fa-eye','color'=>'primary'];
 
 	        /* 
 	        | ---------------------------------------------------------------------- 
@@ -269,8 +238,12 @@
 	    |
 	    */
 	    public function hook_query_index(&$query) {
-	        //Your code here
-	            
+			if(CRUDBooster::isSuperAdmin()){
+				$query->where('pos_pull_headers.status', 'PENDING');     
+			}else{
+				$query->where('pos_pull_headers.stores_id_destination', CRUDBooster::myStore())
+				->where('pos_pull_headers.status', 'PENDING');     
+			}
 	    }
 
 	    /*
@@ -280,7 +253,32 @@
 	    |
 	    */    
 	    public function hook_row_index($column_index,&$column_value) {	        
-	    	//Your code here
+	    	if($column_index == 3){
+				
+				if($column_value == "PENDING"){
+					$column_value = '<span class="label label-warning">PENDING</span>';
+				}
+				else if($column_value == "FOR PICKLIST"){
+					$column_value = '<span class="label label-warning">FOR PICKLIST</span>';
+				}
+				else if($column_value == "FOR PICK CONFIRM"){
+					$column_value = '<span class="label label-warning">FOR PICK CONFIRM</span>';
+				}
+				else if($column_value == "RECEIVED"){
+					$column_value = '<span class="label label-success">RECEIVED</span>';
+				}
+				else if($column_value == "VOID"){
+					$column_value = '<span class="label label-danger">VOID</span>';
+				}
+			}
+			if($column_index == 4){
+				if($column_value == "Logistics"){
+					$column_value = '<span class="label label-default">LOGISTICS</span>';
+				}
+				elseif($column_value == "Hand Carry"){
+					$column_value = '<span class="label label-primary">HAND CARRY</span>';
+				}
+			}
 	    }
 
 	    /*
@@ -356,9 +354,197 @@
 
 	    }
 
+		public function getConfirm($st_number){
+			if(!CRUDBooster::isUpdate() && $this->global_privilege==FALSE) {    
+				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
 
+			$this->cbLoader();
+			$data = array();
+			$data['page_title'] = 'Confirm Stock Transfer Details';
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
+			foreach ($items as $key => $value) {
+				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
+				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
 
-	    //By the way, you can still create your own method in here... :) 
+				$serial_data = array();
+				foreach ($serials as $serial) {
+					array_push($serial_data, $serial->serial_number);
+				}
+
+				$item_data[$key] = [
+					'digits_code' => $value->item_code,
+					'upc_code' => $item_detail->upc_code,
+					'item_description' => $item_detail->item_description != NULL ? $item_detail->item_description : $value->item_description,
+					'price' => $item_detail->store_cost,
+					'st_quantity' => $value->quantity,
+					'st_serial_numbers' => $serial_data
+				];
+			}
+
+			$data['items'] = $item_data;
+			//dd($data);
+			$this->cbView("stock-transfer.st-confirm", $data);
+		}
+
+		public function saveConfirmST(Request $request)
+		{
+			$isGisSt = DB::table('pos_pull_headers')->where('id',$request->header_id)->first();
+			if(!$isGisSt->location_id_from){
+				if($request->approval_action == 1){ // approve
+					DB::table('pos_pull_headers')->where('id',$request->header_id)->update([
+						'status' => self::Confirmed,
+						'confirmed_at' => date('Y-m-d H:i:s'),
+						'confirmed_by' => CRUDBooster::myId(),
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$request->st_number.' has been confirmed!','success')->send();
+				}else{
+					//void st
+					if(substr($request->st_number,0,3) != "REF"){
+						$voidST = app(POSPushController::class)->voidStockTransfer($request->st_number);
+						\Log::info('void st: '.json_encode($voidST));
+	
+						if($voidST['data']['record']['fresult'] == "ERROR"){
+							$error = $voidST['data']['record']['errors']['error'];
+							CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
+						}
+					}
+					DB::table('pos_pull_headers')->where('id',$request->header_id)->update([
+						'status' => 'VOID',
+						'rejected_at' => date('Y-m-d H:i:s'),
+						'rejected_by' => CRUDBooster::myId(),
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$request->st_number.' has been rejected!','info')->send();
+					
+				}
+			}else{
+				if($request->approval_action  == 1){
+					DB::table('pos_pull_headers')->where('id',$request->header_id)->update([
+						'status' => self::Confirmed,
+						'confirmed_at' => date('Y-m-d H:i:s'),
+						'confirmed_by' => CRUDBooster::myId(),
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+					CRUDBooster::redirect(CRUDBooster::mainpath(),''.$request->st_number.' has been confirmed!','success')->send();
+				}else{
+					$items = DB::table('pos_pull')->where('pos_pull_header_id',$isGisSt->id)->get();
+					$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+					->where('location_id',$isGisSt->location_id_from)->where('description','LIKE', '%'.'IN TRANSIT'.'%')->first();
+					DB::table('pos_pull_headers')->where('id',$isGisSt->id)->update([
+						'status' => 'VOID',
+						'rejected_at' => date('Y-m-d H:i:s'),
+						'rejected_by' => CRUDBooster::myId(),
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+	
+					//REVERT QTY IN GIS INVENTORY LINES
+					foreach($items as $key => $item){
+						//REVERT TO INVETORY CAPSULE
+						DB::connection('gis')->table('inventory_capsules')
+						->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+						->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+						->where([
+							'items.digits_code' => $item->item_code,
+							'inventory_capsules.locations_id' => $isGisSt->location_id_from
+						])
+						->where('inventory_capsule_lines.sub_locations_id',$isGisSt->sub_location_id_from)
+						->update([
+							'qty' => DB::raw("qty + $item->quantity"),
+							'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+						]);
+
+						//REMOVE IN INTRANSIT
+						DB::connection('gis')->table('inventory_capsules')
+						->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+						->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+						->where([
+							'items.digits_code' => $item->item_code,
+							'inventory_capsules.locations_id' => $isGisSt->location_id_from
+						])
+						->where('inventory_capsule_lines.sub_locations_id',$from_intransit_gis_sub_location->id)
+						->update([
+							'inventory_capsule_lines.qty' => DB::raw("inventory_capsule_lines.qty - $item->quantity"),
+							'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+						]);
+						//ADD GIS MOVEMENT HISTORY
+						//get item code
+						$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
+						$item_code = DB::connection('gis')->table('items')->where('digits_code',$item->item_code)->first();
+						$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+						->where('description','ST-REVERSAL')->first();
+						DB::connection('gis')->table('history_capsules')->insert([
+							'reference_number' => $request->st_number,
+							'item_code' => $item_code->digits_code2,
+							'capsule_action_types_id' => $capsuleAction->id,
+							'locations_id' => $isGisSt->location_id_from,
+							'from_sub_locations_id' => $isGisSt->sub_location_id_from,
+							'to_sub_locations_id' => $from_intransit_gis_sub_location->id,
+							'qty' => $item->quantity,
+							'created_at' => date('Y-m-d H:i:s'),
+							'created_by' => $gis_mw_name->id
+						]);
+						DB::connection('gis')->table('history_capsules')->insert([
+							'reference_number' => $request->st_number,
+							'item_code' => $item_code->digits_code2,
+							'capsule_action_types_id' => $capsuleAction->id,
+							'locations_id' => $isGisSt->location_id_from,
+							'from_sub_locations_id' => $from_intransit_gis_sub_location->id,
+							'to_sub_locations_id' => $isGisSt->sub_location_id_from,
+							'qty' => -1 * abs($item->quantity),
+							'created_at' => date('Y-m-d H:i:s'),
+							'created_by' => $gis_mw_name->id
+						]);
+					}
+					CRUDBooster::redirect(CRUDBooster::mainpath(),''.$request->st_number.' has been rejected!','info')->send();
+				}
+			}
+			
+		}
+
+		public function getDetail($st_number)
+		{
+			if(!CRUDBooster::isRead() && $this->global_privilege == false || $this->button_detail == false) {    
+				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
+			}
+
+			$this->cbLoader();
+			$data = array();
+			$data['page_title'] = 'Stock Transfer Details';
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
+			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
+			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
+
+			foreach ($items as $key => $value) {
+				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
+				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
+
+				$serial_data = array();
+				foreach ($serials as $serial) {
+					array_push($serial_data, $serial->serial_number);
+				}
+
+				$item_data[$key] = [
+					'digits_code' => $value->item_code,
+					'upc_code' => $item_detail->upc_code,
+					'item_description' => $item_detail->item_description != NULL ? $item_detail->item_description : $value->item_description,
+					'price' => $item_detail->store_cost,
+					'st_quantity' => $value->quantity,
+					'st_serial_numbers' => $serial_data
+				];
+			}
+
+			$data['items'] = $item_data;
+			$this->cbView("stock-transfer.detail", $data);
+		}
 
 
 	}

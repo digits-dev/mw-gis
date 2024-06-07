@@ -9,12 +9,15 @@
 	use App\ApprovalMatrix;
 	use Carbon\Carbon;
 	use App\CodeCounter;
+	use App\PosPullHeader;
+	use App\PosPullLines;
 
 	class AdminStoreTransferController extends \crocodicstudio\crudbooster\controllers\CBController {
 		private const Pending = 'PENDING';
 		private const Void    = 'VOID';
-		private const ForSchedule    = 'FOR SCHEDULE';
-		private const ForReceiving   = 'FOR RECEIVING';
+		private const ForSchedule  = 'FOR SCHEDULE';
+		private const ForReceiving = 'FOR RECEIVING';
+		private const Confirmed = 'CONFIRMED';
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
@@ -94,7 +97,7 @@
 			}
 			//$this->addaction[] = ['title'=>'Print','url'=>CRUDBooster::mainpath('print').'/[st_document_number]','icon'=>'fa fa-print','color'=>'info','showIf'=>"[status]=='FOR SCHEDULE'"];
 			if(CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeName() ,["LOG TM","LOG TL"])){
-				$this->addaction[] = ['title'=>'Schedule','url'=>CRUDBooster::mainpath('schedule').'/[st_document_number]','icon'=>'fa fa-calendar','color'=>'warning','showIf'=>"[status]==".self::ForSchedule.""];
+				$this->addaction[] = ['title'=>'Schedule','url'=>CRUDBooster::mainpath('schedule').'/[st_document_number]','icon'=>'fa fa-calendar','color'=>'warning','showIf'=>"[status]=='FOR SCHEDULE'"];
 			}
 			
 			$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('details').'/[st_document_number]','icon'=>'fa fa-eye','color'=>'primary'];
@@ -302,8 +305,11 @@
 	    public function hook_row_index($column_index,&$column_value) {	        
 	    	//Your code here
 			if($column_index == 5){
-				if($column_value == "PENDING"){
-					$column_value = '<span class="label label-warning">PENDING</span>';
+				if($column_value == self::Pending){
+					$column_value = '<span class="label label-warning">'.self::Pending.'</span>';
+				}
+				else if($column_value == self::Confirmed){
+					$column_value = '<span class="label label-warning">'.self::Confirmed.'</span>';
 				}
 				else if($column_value == "FOR PICKLIST"){
 					$column_value = '<span class="label label-warning">FOR PICKLIST</span>';
@@ -1066,7 +1072,7 @@
 		public function saveSchedule(Request $request)
 		{
 
-			$record = DB::table('pos_pull')
+			$record = DB::table('pos_pull_headers')
 				->where('st_document_number',$request->st_number)
 				->update([
 					'scheduled_at' => $request->schedule_date,
@@ -1090,37 +1096,17 @@
 		public function getPrint($st_number)
 		{
 			$this->cbLoader();
-
 			$data = array();
-			
 			$data['page_title'] = 'STS Details';
-
-			$data['stDetails'] = DB::table('pos_pull_headers')
-				->join('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
-				->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
-				->leftJoin('cms_users', 'pos_pull_headers.scheduled_by', '=', 'cms_users.id')
-				->where('pos_pull_headers.st_document_number', $st_number)
-				->select('pos_pull_headers.*','reason.pullout_reason','transport_types.transport_type','cms_users.name as scheduled_by')
-				->first();
-
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
 			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
-
 			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
-
-			$items = DB::table('pos_pull')
-			->where('pos_pull_header_id',$data['stDetails']->id)
-			->select('id','item_code','quantity','item_description')
-			->get();
-
-			$data['stQuantity'] =  DB::table('pos_pull')
-			->where('pos_pull_header_id', $data['stDetails']->id)
-			->sum('quantity');
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
 
 			foreach ($items as $key => $value) {
-
 				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
-
 				$serial_data = array();
 				foreach ($serials as $serial) {
 					array_push($serial_data, $serial->serial_number);
@@ -1240,31 +1226,13 @@
 			$this->cbLoader();
 
 			$data = array();
-
 			$data['page_title'] = 'Stock Transfer Details';
-
-			$data['stDetails'] = DB::table('pos_pull_headers')
-				->join('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
-				->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
-				->where('st_document_number', $st_number)
-				->select('pos_pull_headers.*','reason.pullout_reason','transport_types.transport_type')
-				->first();
-			
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
 			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
-
 			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
-
-			$items = DB::table('pos_pull')
-				->where('pos_pull_header_id',$data['stDetails']->id)
-				->select('id','item_code','quantity','item_description')
-				->get();
-
-			$data['stQuantity'] =  DB::table('pos_pull')
-				->where('pos_pull_header_id', $data['stDetails']->id)
-				->sum('quantity');
-
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
 			foreach ($items as $key => $value) {
-
 				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
 
@@ -1284,7 +1252,6 @@
 			}
 
 			$data['items'] = $item_data;
-			
 			$this->cbView("stock-transfer.detail", $data);
 		}
 
@@ -1295,33 +1262,15 @@
 			}
 
 			$data['page_title'] = 'Schedule Stock Transfer';
-
-			$data['stDetails'] = DB::table('pos_pull_headers')
-					->join('reason', 'pos_pull_headers.reason_id', '=', 'reason.id')
-					->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
-					->where('st_document_number', $st_number)
-					->select('pos_pull_headers.*','reason.pullout_reason','transport_types.transport_type')
-					->get();
-					
-
+			$data['stDetails'] = PosPullHeader::getDetails($st_number)->first();
 			$data['transfer_from'] = DB::table('stores')->where('id',$data['stDetails']->stores_id)->first();
-
 			$data['transfer_to'] = DB::table('stores')->where('id',$data['stDetails']->stores_id_destination)->first();
-
-			$items = DB::table('pos_pull')
-				->where('pos_pull_header_id',$data['stDetails']->id)
-				->select('id','item_code','quantity','item_description')
-				->get();
-
-			$data['stQuantity'] =  DB::table('pos_pull')
-				->where('pos_pull_header_id', $data['stDetails']->id)
-				->sum('quantity');
+			$items = PosPullLines::getItems($data['stDetails']->id)->get();
+			$data['stQuantity'] =  PosPullLines::getStQuantity($data['stDetails']->id);
 
 			foreach ($items as $key => $value) {
-
 				$serials = DB::table('serials')->where('pos_pull_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
-
 				$serial_data = array();
 				foreach ($serials as $serial) {
 					array_push($serial_data, $serial->serial_number);
@@ -1338,7 +1287,6 @@
 			}
 
 			$data['items'] = $item_data;
-
 			$this->cbView("stock-transfer.schedule", $data);
 		}
 
