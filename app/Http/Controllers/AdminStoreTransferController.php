@@ -294,7 +294,7 @@
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
 				//Area Manager, Operations Manager
-				else if (in_array(CRUDBooster::myPrivilegeId(), [31,28])){
+				else if (in_array(CRUDBooster::myPrivilegeId(), [31,30])){
 
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
