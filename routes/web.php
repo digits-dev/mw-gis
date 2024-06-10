@@ -162,9 +162,9 @@ Route::get('/admin/transfer_approval/review/{st_number}','AdminStoreTransferAppr
 Route::get('/admin/transfer_approval/details/{st_number}','AdminStoreTransferApprovalController@getDetail')->name('st-approval.detail');
 Route::post('/admin/st_approval','AdminStoreTransferApprovalController@saveReviewST')->name('saveReviewST');
 //ST Confirmation
-Route::get('/admin/transfer_confirm/confirm/{st_number}','AdminStoreTransferConfirmationController@getConfirm')->name('st-confirm.review');
+Route::get('/admin/store_transfer_confirmation/confirm/{st_number}','AdminStoreTransferConfirmationController@getConfirm')->name('st-confirm.review');
 Route::post('/admin/st_confirm','AdminStoreTransferConfirmationController@saveConfirmST')->name('saveConfirmST');
-Route::get('/admin/transfer_confirm/details/{st_number}','AdminStoreTransferConfirmationController@getDetail')->name('st-confirm.detail');
+Route::get('/admin/store_transfer_confirmation/details/{st_number}','AdminStoreTransferConfirmationController@getDetail')->name('st-confirm.detail');
 
 Route::post('/admin/st_creation','AdminStoreTransferController@saveCreateST')->name('saveCreateST');
 Route::post('/admin/search_scan_items','AdminStoreTransferController@scanItemSearch')->name('scanItemSearch');
