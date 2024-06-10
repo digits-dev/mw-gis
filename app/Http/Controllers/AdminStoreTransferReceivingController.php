@@ -15,7 +15,7 @@
 		private const ForSchedule  = 'FOR SCHEDULE';
 		private const ForReceiving = 'FOR RECEIVING';
 		private const Confirmed = 'CONFIRMED';
-		private const Received = 'RECIEVED';
+		private const Received = 'RECEIVED';
 
 	    public function cbInit() {
 
