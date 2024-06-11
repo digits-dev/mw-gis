@@ -345,4 +345,4 @@ Route::post('/admin/delivery_receiving/get_pos_item','AdminDeliveryReceivingCont
 Route::post('/admin/delivery_receiving/get_bea_item','AdminDeliveryReceivingController@getBEAItemDetails')->name('getBEAItem');
 
 //Get Stores Options
-Route::get('/get-child-options/{parentId}', 'StoreOptions@getValues');
+Route::get('/admin/get-store-options/{channelId}', 'StoreOptions@getValues');

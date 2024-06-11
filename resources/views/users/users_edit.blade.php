@@ -64,6 +64,10 @@
         </div>
 
         <div class='form-group' id="stores-container">
+          <label for="stores_id">Store</label>
+          <select name="" id="stores_id" class='form-control'>
+            <option value="">Please Select Store</option>
+          </select>
         </div>
 
         <div class='form-group'>
@@ -82,22 +86,20 @@
 @push('bottom')
 <script type="text/javascript">
 
-$(document).ready(function () {
-    let parentId = $('#channel').val();
-    let storesId = <?php echo json_encode($row->stores_id); ?>;
-    let userStoreName = <?php echo json_encode($user_store_name); ?>;
 
-  
-    getStores(parentId);
+$(function () {
+    let storesId = {!! json_encode($row->stores_id) !!};
+    let userStoreName = {!! json_encode($user_store_name) !!};
+
+    getStores($('#channel').val());
 
     $('#channel').change(function () {
-      let parentId = $(this).val();
-      getStores(parentId);
+        getStores($(this).val());
     });
 
     function getStores(channelId){
         if (channelId) {
-          $.get('/get-child-options/' + channelId, function(response) {
+          $.get(ADMIN_PATH + '/get-store-options/' + channelId, function(response) {
 
             let select = $('<select>').attr({
                 name: 'stores_id',
@@ -122,7 +124,8 @@ $(document).ready(function () {
                 let selectedOption = $(this).find('option:selected');
                 let selectedStoreId = selectedOption.val();
 
-                let isPending = <?php echo json_encode($is_pending); ?>;
+                // let isPending = <?php echo json_encode($is_pending); ?>;
+                let isPending = {!! json_encode($is_pending) !!};
 
                 if (selectedStoreId && isPending) {
                     swal({
@@ -155,5 +158,6 @@ $(document).ready(function () {
     
     }
 });
+
 </script>
 @endpush
