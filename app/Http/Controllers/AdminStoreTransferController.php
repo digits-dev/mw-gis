@@ -287,14 +287,8 @@
 					$query->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList))
 						->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date');
 				} 
-				//Store Head
-				else if (CRUDBooster::myPrivilegeId() == 29){
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-					->where('pos_pull_headers.stores_id',$store->id)
-					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
-				}
 				//Area Manager, Operations Manager
-				else if (in_array(CRUDBooster::myPrivilegeId(), [31,30])){
+				else if (in_array(CRUDBooster::myPrivilegeId(), [32])){
 
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
