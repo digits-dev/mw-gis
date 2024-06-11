@@ -1,24 +1,47 @@
 
 @extends('crudbooster::admin_template')
 @section('content')
+
+@push('head')
+<style type="text/css">
+  .select2-selection__choice{
+    font-size:14px !important;
+    color:black !important;
+  }
+  .select2-selection__rendered {
+    line-height: 31px !important;
+  }
+  .select2-container .select2-selection--single {
+    height: 35px !important;
+  }
+  .select2-selection__arrow {
+    height: 34px !important;
+   }
+</style>
+@endpush
+
   <!-- Your html goes here -->
   <div class='panel panel-default'>
     <form method='post' action='{{CRUDBooster::mainpath('edit-save/'.$row->id)}}'>
       <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
     <div class='panel-heading'>Edit User</div>
+
     <div class='panel-body'>
         <div class='form-group'>
           <label for="name">Name</label>
           <input type='text' name='name' id="name" required class='form-control' value='{{$row->name}}'/>
         </div>
+
         <div class='form-group'>
           <label for="email">Email</label>
           <input type='email' id="email" required class='form-control' value='{{$row->email}}'/>
         </div>
+        
         <div class='form-group'>
           <label for="photo">Photo</label>
           <input type='file' name='photo' id="photo" class='form-control' value='{{$row->photo}}' />
         </div>
+
         <div class='form-group'>
           <label for="privilege">Privilege</label>
           <select name="id_cms_privileges" id="privilege" required class='form-control'>
@@ -28,22 +51,21 @@
             @endforeach
           </select>
         </div>
+
         <div class='form-group'>
           <label for="channel">Channel</label>
           <select name="channel_id" id="channel" required class='form-control' >
+            <option value="">Please Select Channel</option>
             @foreach ($channels as $channel)
             <option value="{{ $channel->id }}" {{ $channel->id == $row->channel_id ? 'selected' : '' }}>{{ $channel->channel_description }}
           </option>
             @endforeach
           </select>
         </div>
-        <div class='form-group'>
-          <label >Store</label>
-          <div id="checkboxes" style="display:flex; flex-direction:column; align-items:flex-start; gap:5px; width:100%" >
-            <input type='text' name="stores_id" class='form-control' value="Please Select Channel" disabled/>
-          </div>
+
+        <div class='form-group' id="stores-container">
         </div>
-         
+
         <div class='form-group'>
           <label for="password">Password</label>
           <input type='password' name='password' id="password" class='form-control'/>
@@ -60,110 +82,78 @@
 @push('bottom')
 <script type="text/javascript">
 
-console.log(app);
 $(document).ready(function () {
     let parentId = $('#channel').val();
     let storesId = <?php echo json_encode($row->stores_id); ?>;
-  
-    if (parentId) {
-        $.get('/get-child-options/' + parentId, function(response) {
-            console.log(response)
-            var childCheckboxes = $('#checkboxes');
-            childCheckboxes.empty(); 
-            childCheckboxes.show(); 
-            $.each(response.childOptions, function(index, option) {
-                var checkbox = $('<input>').attr({
-                    type: 'checkbox',
-                    name: 'stores_id', 
-                    id: option.id,
-                    value: option.id
-                }).on('click', function(){
-                    var groupName = $(this).attr('name');
-                    $('input[name="' + groupName + '"]').not(this).prop('checked', false);
-                    
-                    let isPending = <?php echo json_encode($is_pending); ?>;
-                    let userStoreName = <?php echo json_encode($user_store_name); ?>;
+    let userStoreName = <?php echo json_encode($user_store_name); ?>;
 
-                    if (isPending){
-                        swal({
-                            title: "The user have pending transaction",
-                            text:"Store Name: " + userStoreName,
-                            type: "info",
-                            showCancelButton: false,
-                            confirmButtonColor: "#337ab7",
-                            cancelButtonColor: "#F9354C",
-                            confirmButtonText: "Ok",
-                            width: 700,
-                            height: 200
-                            });
-                    }
-                });
-                if (option.id == storesId) {
-                checkbox.prop('checked', true);
-               } 
-                var label = $('<label>').attr('for', option.id).text(option.bea_so_store_name).prepend(checkbox);
-                var checkboxDiv = $('<div>').addClass('checkbox').append(label.prepend(checkbox));
-                childCheckboxes.append(checkboxDiv);
-            });
-        }).fail(function(xhr, status, error) {
-            console.error(error);
-        });
-    } else {
-        $('#childCheckboxes').hide(); 
-    }
+  
+    getStores(parentId);
 
     $('#channel').change(function () {
-        let parentId = $(this).val();
-        if (parentId) {
-            $.get('/get-child-options/' + parentId, function(response) {
-                console.log(response);
-                var childCheckboxes = $('#checkboxes');
-                childCheckboxes.empty(); 
-                childCheckboxes.show(); 
-                $.each(response.childOptions, function(index, option) {
-                    var checkbox = $('<input>').attr({
-                        type: 'checkbox',
-                        name: 'stores_id', 
-                        id: option.id,
-                        value: option.id
-                    }).on('click', function(){
-                        var groupName = $(this).attr('name');
-                        $('input[name="' + groupName + '"]').not(this).prop('checked', false);
-
-                        
-                        let isPending = <?php echo json_encode($is_pending); ?>;
-                        let userStoreName = <?php echo json_encode($user_store_name); ?>;
-
-                        if (isPending){
-                            swal({
-                                title: "The user have pending transaction in the store",
-                                text:"Store Name: " + userStoreName,
-                                type: "info",
-                                showCancelButton: false,
-                                confirmButtonColor: "#337ab7",
-                                cancelButtonColor: "#F9354C",
-                                confirmButtonText: "Ok",
-                                width: 700,
-                                height: 200
-                                });
-                        }
-                    });
-
-                    if (option.id == storesId) {
-                      checkbox.prop('checked', true);
-                    } 
-                    var label = $('<label>').attr('for', option.id).text(option.bea_so_store_name).prepend(checkbox);
-                    var checkboxDiv = $('<div>').addClass('checkbox').append(label.prepend(checkbox));
-                    childCheckboxes.append(checkboxDiv);
-                });
-            }).fail(function(xhr, status, error) {
-                console.error(error);
-            });
-        } else {
-            $('#childCheckboxes').hide(); 
-        }
+      let parentId = $(this).val();
+      getStores(parentId);
     });
 
+    function getStores(channelId){
+        if (channelId) {
+          $.get('/get-child-options/' + channelId, function(response) {
+
+            let select = $('<select>').attr({
+                name: 'stores_id',
+                id: 'stores_id'
+            }).addClass('form-control'); 
+
+            select.append($('<option>').attr('value', '').text('Please select store'));
+
+            $.each(response.childOptions, function(index, option) {
+                let optionElement = $('<option>').attr({
+                    value: option.id
+                }).text(option.bea_so_store_name);
+
+                if (option.id == storesId) {
+                    optionElement.prop('selected', true);
+                }
+
+                select.append(optionElement);
+            });
+
+            select.on('change', function() {
+                let selectedOption = $(this).find('option:selected');
+                let selectedStoreId = selectedOption.val();
+
+                let isPending = <?php echo json_encode($is_pending); ?>;
+
+                if (selectedStoreId && isPending) {
+                    swal({
+                        title: "The user has a pending transaction in the store",
+                        text: "Store Name: " + userStoreName,
+                        type: "warning",
+                        showCancelButton: false,
+                        confirmButtonColor: "#337ab7",
+                        cancelButtonColor: "#F9354C",
+                        confirmButtonText: "Ok",
+                        width: 700,
+                        height: 200
+                    });
+                }
+            });
+
+            const label = $('<label>').attr('for', 'stores_id').text('Store');
+
+            $('#stores-container').empty().append(label, select);
+
+            select.select2();
+
+          }).fail(function(xhr, status, error) {
+            console.error(error);
+          });
+
+        } else {
+        $('#stores-container').hide();
+      }
+    
+    }
 });
 </script>
 @endpush

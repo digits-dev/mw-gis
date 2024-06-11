@@ -47,10 +47,11 @@
 			$this->form[] = ['label'=>'Name','name'=>'name','type'=>'text','validation'=>'required|min:3','width'=>'col-sm-10'];
 			$this->form[] = ['label'=>'Email','name'=>'email','type'=>'email','validation'=>'required|email|unique:cms_users,email,60','width'=>'col-sm-10'];
 			$this->form[] = ['label'=>'Photo','name'=>'photo','type'=>'upload','validation'=>'image|max:1000','width'=>'col-sm-10','help'=>'Recommended resolution is 200x200px'];
-			$this->form[] = ['label'=>'Privilege','name'=>'id_cms_privileges','type'=>'select','width'=>'col-sm-10','datatable'=>'cms_privileges,name'];
-			$this->form[] = ["label"=>"Channel","name"=>"channel_id","type"=>"select2","datatable"=>"channel,channel_description",'datatable_where'=>"status='ACTIVE'",'required'=>CRUDBooster::isSuperadmin() ? false : true];
-			$this->form[] = ["label"=>"Store","name"=>"stores_id","type"=>"check-box","datatable"=>"stores,bea_so_store_name","datatable_where"=>"status='ACTIVE'",  "parent_select"=>"channel_id", 'required'=>CRUDBooster::isSuperadmin() ? false : true];						
+			$this->form[] = ['label'=>'Privilege','name'=>'id_cms_privileges','type'=>'select2','width'=>'col-sm-10','datatable'=>'cms_privileges,name', 'datatable_where'=>"name IN ('Operations Manager','Store Head','Cashier', 'Area Manager', 'Customer Service Associate')"];
+			$this->form[] = ["label"=>"Channel","name"=>"channel_id","type"=>"select2", 'width'=>'col-sm-10' , "datatable"=>"channel,channel_description",'datatable_where'=>"status='ACTIVE' AND id IN (1,2)",'required'=>CRUDBooster::isSuperadmin() ? false : true];
+			$this->form[] = ["label"=>"Store","name"=>"stores_id","type"=>"select2", 'width'=>'col-sm-10', "datatable"=>"stores,bea_so_store_name",'datatable_where'=>"status='ACTIVE'",'required'=>CRUDBooster::isSuperadmin() ? false : true, 'parent_select'=>'channel_id'];						
 			$this->form[] = ['label'=>'Password','name'=>'password','type'=>'password','validation'=>'min:3|max:32','width'=>'col-sm-10'];
+
 			# END FORM DO NOT REMOVE THIS LINE
 
 			# OLD START FORM
@@ -409,24 +410,8 @@
 	    }
 
 
-		public function getAdd() {
-			//Create an Auth
-			if(!CRUDBooster::isCreate() && $this->global_privilege==FALSE || $this->button_add==FALSE) {    
-			  CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
-			}
-			
-			$data = [];
-			$data['page_title'] = 'Add Store User';
-			$data['privileges'] = DB::table('cms_privileges')->whereIn('id', [28,29,30,31,32])->get();
-			$data['channels'] = DB::table('channel')->whereIn('id', [1,2])->get();
-			$data['stores'] = DB::table('stores')->whereIn('channel_id',[1,2])->get();
-			
-			//Please use view method instead view method from laravel
-			return $this->cbView('users.users_add',$data);
-		}
 
 		public function getDetail($id) {
-			//Create an Auth
 			if(!CRUDBooster::isRead() && $this->global_privilege==FALSE || $this->button_edit==FALSE) {    
 			  CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
 			}
@@ -447,12 +432,10 @@
 						  ])
 						  ->where('user.id',$id)->first();
 			
-			//Please use cbView method instead view method from laravel
 			$this->cbView('users.users_view',$data);
 		}
 
-		  public function getEdit($id) {
-			//Create an Auth
+			  public function getEdit($id) {
 			if(!CRUDBooster::isUpdate() && $this->global_privilege==FALSE || $this->button_edit==FALSE) {    
 			  CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
 			}
@@ -472,7 +455,6 @@
 			$this->cbView('users.users_edit',$data);
 		  }
 
-	    //By the way, you can still create your own method in here... :) 
 
 
 	}
