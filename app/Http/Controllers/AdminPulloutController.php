@@ -152,7 +152,7 @@
 	        | 
 	        */
 			$this->index_button = array();
-			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver","Warehouse","Gashapon Requestor"])){
+			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver","Warehouse","Gashapon Requestor", "Operations Manager", "Area Manager"])){
 				
 				if(CRUDBooster::myChannel() != 4){
 					$this->index_button[] = ['label'=>'Create STW','url'=>CRUDBooster::mainpath().'/stw/create','icon'=>'fa fa-plus','color'=>'success'];
