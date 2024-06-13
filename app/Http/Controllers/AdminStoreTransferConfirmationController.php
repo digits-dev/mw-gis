@@ -19,7 +19,7 @@
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE
-			$this->title_field = "file_name";
+			$this->title_field = "st_document_number";
 			$this->limit = "20";
 			$this->orderby = "id,desc";
 			$this->global_privilege = false;
@@ -240,10 +240,10 @@
 	    */
 	    public function hook_query_index(&$query) {
 			if(CRUDBooster::isSuperAdmin()){
-				$query->where('pos_pull_headers.status', 'PENDING');     
+				$query->where('pos_pull_headers.status', self::Pending);     
 			}else{
-				$query->where('pos_pull_headers.stores_id_destination', CRUDBooster::myStore())
-				->where('pos_pull_headers.status', 'PENDING');     
+				$query->whereIn('pos_pull_headers.stores_id_destination', CRUDBooster::myStore())
+				->where('pos_pull_headers.status', self::Pending);     
 			}
 	    }
 
