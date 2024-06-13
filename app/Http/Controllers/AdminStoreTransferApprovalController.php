@@ -239,7 +239,7 @@
 	    */
 	    public function hook_query_index(&$query) {
 	        //Your code here
-	        if(in_array(CRUDBooster::myPrivilegeId(), [5,28,29,31])){
+	        if(in_array(CRUDBooster::myPrivilegeId(), [5,28])){
 				//get approval matrix
 				$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
 				
@@ -375,7 +375,7 @@
 
 		public function getApproval($st_number)
 		{
-			if(!CRUDBooster::isSuperadmin() && CRUDBooster::myPrivilegeName() != "Approver") {    
+			if(!in_array(CRUDBooster::myPrivilegeId(),[1,5,28])) {    
 				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
 			}
 
