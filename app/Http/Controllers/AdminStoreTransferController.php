@@ -296,7 +296,7 @@
 				//Area manager
 				else if (in_array(CRUDBooster::myPrivilegeId(), [32])){
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-					->whereIn('pos_pull_headers.stores_id',$store->id)
+					->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
 				//Cashier, Customer Service, Associate, Requestor
