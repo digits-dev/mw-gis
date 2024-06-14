@@ -43,7 +43,7 @@ table.table.table-bordered th {
 
             <form action="{{ route('saveSTSReceiving') }}" method="POST" id="st_received" autocomplete="off" role="form" enctype="multipart/form-data">
             <input type="hidden" name="_token" id="token" value="{{csrf_token()}}" >
-            <input type="hidden" name="st_number" id="st_number" value="{{$stDetails[0]->st_document_number}}"/>
+            <input type="hidden" name="st_number" id="st_number" value="{{$stDetails->st_document_number}}"/>
             <input type="hidden" name="from_transfer_transit" id="from_transfer_transit" value="{{ $transfer_from->pos_warehouse_transit }}"/>
             <input type="hidden" name="from_transfer_branch" id="from_transfer_branch" value="{{ $transfer_from->pos_warehouse_transit_branch }}"/>
             <input type="hidden" name="transfer_to" id="transfer_to" value="{{ $transfer_to->pos_warehouse }}"/>
@@ -69,7 +69,7 @@ table.table.table-bordered th {
                                     <b>ST:</b>
                                 </td>
                                 <td>
-                                    {{ $stDetails[0]->st_document_number }}
+                                    {{ $stDetails->st_document_number }}
                                 </td>
                             </tr>
                             <tr>
@@ -94,8 +94,8 @@ table.table.table-bordered th {
                                     <b>Reason:</b>
                                 </td>
                                 <td>
-                                    {{ $stDetails[0]->pullout_reason }} 
-                                    <input type="hidden" name="reason" id="reason" value="{{ $stDetails[0]->pullout_reason }}"/>
+                                    {{ $stDetails->pullout_reason }} 
+                                    <input type="hidden" name="reason" id="reason" value="{{ $stDetails->pullout_reason }}"/>
                                 </td>
                             </tr>
                         </tbody>
