@@ -1313,7 +1313,7 @@
 			$getAutoReject = DB::table('pos_pull_headers')->whereNotNull('approved_at')
 			->where('transport_types_id',2)
 			->where('approved_at', '<=', $twentyFourHoursAgo)
-			->whereIn('status',['FOR RECEIVING'])
+			->whereIn('status',['PENDING','CONFIRMED'])
 			->get();
 		
 			foreach($getAutoReject as $st_data){
