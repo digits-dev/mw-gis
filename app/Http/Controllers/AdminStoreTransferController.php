@@ -138,7 +138,7 @@
 	        | 
 	        */
 			$this->index_button = array();
-			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL","Approver","Gashapon Requestor", "Operations Manager", "Area Manager"])){
+			if(CRUDBooster::getCurrentMethod() == 'getIndex' && !in_array(CRUDBooster::myPrivilegeId(),[4, 25, 5, 27, 28, 31,32])){
 				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
 			}elseif(CRUDBooster::getCurrentMethod() == 'getIndex' && in_array(CRUDBooster::myPrivilegeId(),[27])){
 				$this->index_button[] = ['label'=>'Create STS','url'=>route('st.gis.scanning'),'icon'=>'fa fa-plus','color'=>'success'];
@@ -294,7 +294,7 @@
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
 				}
 				//Area manager
-				else if (in_array(CRUDBooster::myPrivilegeId(), [32])){
+				else if (in_array(CRUDBooster::myPrivilegeId(), [31,32])){
 					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
 					->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())
 					->orderByRaw('FIELD(pos_pull_headers.status, "PENDING", "FOR SCHEDULE","FOR RECEIVING", "RECEIVED", "VOID")');
@@ -1310,7 +1310,7 @@
 		public function autoRejectHandCarry(){
 			// Calculate the date and time 24 hours ago
 			$twentyFourHoursAgo = Carbon::now()->subDay();
-			$getAutoReject = DB::table('pos_pull_headers')->where('transport_types_id',2)
+			$getAutoReject = DB::table('pos_pull_headers')
 			->where('created_at', '<=', $twentyFourHoursAgo)
 			->whereIn('status',['PENDING','CONFIRMED'])
 			->get();
