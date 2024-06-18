@@ -1310,9 +1310,8 @@
 		public function autoRejectHandCarry(){
 			// Calculate the date and time 24 hours ago
 			$twentyFourHoursAgo = Carbon::now()->subDay();
-			$getAutoReject = DB::table('pos_pull_headers')->whereNotNull('approved_at')
-			->where('transport_types_id',2)
-			->where('approved_at', '<=', $twentyFourHoursAgo)
+			$getAutoReject = DB::table('pos_pull_headers')->where('transport_types_id',2)
+			->where('created_at', '<=', $twentyFourHoursAgo)
 			->whereIn('status',['PENDING','CONFIRMED'])
 			->get();
 		
