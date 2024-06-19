@@ -1310,7 +1310,32 @@
 		public function autoRejectHandCarry(){
 			// Calculate the date and time 24 hours ago
 			$twentyFourHoursAgo = Carbon::now()->subDay();
-			$getAutoReject = DB::table('pos_pull_headers')
+			$getAutoReject = DB::table('pos_pull_headers')->where('transport_types_id',2)
+			->where('created_at', '<=', $twentyFourHoursAgo)
+			->whereIn('status',['PENDING','CONFIRMED','FOR RECEIVING'])
+			->get();
+		
+			foreach($getAutoReject as $st_data){
+				$voidST = app(POSPushController::class)->voidStockTransfer($st_data->st_document_number);
+				if($voidST['data']['record']['fresult'] == "ERROR"){
+					$error = $voidST['data']['record']['errors']['error'];
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'Fail! '.$error,'warning')->send();
+				}
+				else{
+					DB::table('pos_pull_headers')->where('st_document_number',$st_data->st_document_number)->update([
+						'status' => self::Void,
+						'updated_at' => date('Y-m-d H:i:s')
+					]);
+				}
+			}
+			CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#'.$st_data->st_document_number.' has been voided successfully!','success')->send();
+			
+		}
+
+		public function autoRejectLogistics(){
+			// Calculate the date and time 24 hours ago
+			$twentyFourHoursAgo = Carbon::now()->subDay();
+			$getAutoReject = DB::table('pos_pull_headers')->where('transport_types_id',1)
 			->where('created_at', '<=', $twentyFourHoursAgo)
 			->whereIn('status',['PENDING','CONFIRMED'])
 			->get();
