@@ -42,7 +42,7 @@
 
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
-			
+
 	        $this->addaction = array();
             if(CRUDBooster::isSuperadmin()){
                 
@@ -664,7 +664,7 @@
 			
 			\Log::info($request->filter_column);
 			
-			if(sizeof($request->filter_column) != 0) {
+			if(sizeof((array)$request->filter_column) != 0) {
 
 				$filter_column = $request->filter_column;
 
