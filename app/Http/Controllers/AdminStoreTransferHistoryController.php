@@ -14,6 +14,7 @@
 	use PhpOffice\PhpSpreadsheet\IOFactory;
 	use App\PosPullHeader;
 	use App\PosPullLines;
+use Illuminate\Support\Facades\Log;
 
 	class AdminStoreTransferHistoryController extends \crocodicstudio\crudbooster\controllers\CBController {
 
@@ -594,7 +595,7 @@
 				$filter_column = $request->filter_column;
 				$sts_item->where(function($w) use ($filter_column,$fc) {
 					if(is_array($filter_column)){
-						foreach($filter_column as $key=>$fc) {
+						foreach((array)$filter_column as $key=>$fc) {
 
 							$value = @$fc['value'];
 							$type  = @$fc['type'];
@@ -629,7 +630,7 @@
 					}
 				});
 				if(is_array($filter_column)){
-					foreach($filter_column as $key=>$fc) {
+					foreach((array)$filter_column as $key=>$fc) {
 						$value = @$fc['value'];
 						$type  = @$fc['type'];
 						$sorting = @$fc['sorting'];
@@ -733,7 +734,7 @@
 
 			ini_set('max_execution_time', 0);
 			$filename = 'Export STS - '.date("Ymd H:i:sa");
-			self::ExportExcel($items_array, $filename);
+			self::exportExcel($items_array, $filename);
 			// Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
 			// 	$excel->sheet('sts', function($sheet) use ($headings, $items_array){
 			// 		// Set auto size for sheet
@@ -788,7 +789,7 @@
 				$filter_column = $request->filter_column;
 				$sts_item->where(function($w) use ($filter_column,$fc) {
 					if(is_array($filter_column)){
-						foreach($filter_column as $key=>$fc) {
+						foreach((array)$filter_column as $key=>$fc) {
 
 							$value = @$fc['value'];
 							$type  = @$fc['type'];
@@ -823,7 +824,7 @@
 					}
 				});
 				if(is_array($filter_column)){
-					foreach($filter_column as $key=>$fc) {
+					foreach((array)$filter_column as $key=>$fc) {
 						$value = @$fc['value'];
 						$type  = @$fc['type'];
 						$sorting = @$fc['sorting'];
@@ -928,7 +929,7 @@
 
 			ini_set('max_execution_time', 0);
 			$filename = 'Export STS with Serial- '.date("Ymd H:i:sa");
-			self::ExportExcel($items_array, $filename);
+			self::exportExcel($items_array, $filename);
 			// Excel::create('Export STS with Serial- '.date("Ymd H:i:sa"), function($excel) use ($headings,$items_array){
 			// 	$excel->sheet('sts-serial', function($sheet) use ($headings,$items_array){
 			// 		// Set auto size for sheet
@@ -948,21 +949,22 @@
 			// })->export('xlsx');
 		}
 
-		public function ExportExcel($data,$filename){
+		public function exportExcel($data,$filename){
 			ini_set('max_execution_time', 0);
 			ini_set('memory_limit', '4000M');
 			try {
 				$spreadSheet = new Spreadsheet();
 				$spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(20);
 				$spreadSheet->getActiveSheet()->fromArray($data);
-				$Excel_writer = new Xlsx($spreadSheet);
+				$excelWriter = new Xlsx($spreadSheet);
 				header('Content-Type: application/vnd.ms-excel');
 				header('Content-Disposition: attachment;filename="'.$filename.'.xlsx"');
 				header('Cache-Control: max-age=0');
 				ob_end_clean();
-				$Excel_writer->save('php://output');
+				$excelWriter->save('php://output');
 				exit();
 			} catch (Exception $e) {
+				Log::error($e->getMessage());
 				return;
 			}
 		}
