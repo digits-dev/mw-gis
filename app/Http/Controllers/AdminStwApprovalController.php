@@ -463,9 +463,9 @@
 		public function saveReviewPullout(Request $request)
 		{
 			$pullout_approval = Pullout::where('st_document_number',$request->st_number)->first();
-			if($pullout_approval->step > 3){
-				CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' has already been updated!','warning')->send();
-			}
+			// if($pullout_approval->step > 3){
+			// 	CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' has already been updated!','warning')->send();
+			// }
 			if($request->approval_action == 1){ // approve
 				
             	$pullout_status = array();
