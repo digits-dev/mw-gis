@@ -217,22 +217,20 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 			if(!empty($dataExcel) && $dataExcel->count()) {
 				$cnt_success = 0;
 				$cnt_fail = 0;
-
-				$privilegeId = DB::table('cms_privileges')->get();
-				$channelId = DB::table('channel')->get();
-				$storeId = DB::table('stores')->get();
-					
+				
 				foreach ($dataExcel as $key => $value) {
+					$privilegeId = DB::table('cms_privileges')->where('name', $value->privilege)->value('id');
+					$channelId = DB::table('channel')->where('channel_description', $value->channel)->value('id');
+					$storeId = DB::table('stores')->where('bea_so_store_name', $value->store_name)->where('channel_id', $channelId)->value('id');
 					if(!empty($privilegeId) && $privilegeId != 1 && !empty($storeId)){
 						$data = [
 						    'name'  =>  $value->user_name,
-						    'channel_id'   => $channelId->where('channel_description', $value->channel)->value('id'),
-						    'stores_id' =>  $storeId->where(['bea_so_store_name'=> $value->store_name,
-								'channel_id'=> $channelId->where('channel_description', $value->channel)->value('id')])->value('id'),
+						    'channel_id'   => $channelId,
+						    'stores_id' =>  $storeId,
 						    'photo' => 'uploads/mrs-avatar.png',
 						    'email' => $value->email,
 						    'password' => bcrypt('qwerty'),
-						    'id_cms_privileges' => $privilegeId->where('name', $value->privilege)->value('id'),
+						    'id_cms_privileges' => $privilegeId,
 							'status'    => 'ACTIVE',
 							'created_at'    => date('Y-m-d H:i:s'),
 						];
