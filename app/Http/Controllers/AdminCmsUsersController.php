@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Input;
 use DB;
 use CRUDbooster;
 use Excel;
+use Illuminate\Support\Facades\Log;
 
 class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CBController {
 
@@ -61,6 +62,8 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 			$this->button_selected[] = ["label"=>"Set Status INACTIVE","icon"=>"fa fa-times-circle","name"=>"set_status_INACTIVE"];
 			$this->button_selected[] = ["label"=>"Reset Password","icon"=>"fa fa-refresh","name"=>"reset_password"];
 		}
+
+		$this->script_js[] ='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js';
 				
 	}
 	
@@ -214,44 +217,42 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 			if(!empty($dataExcel) && $dataExcel->count()) {
 				$cnt_success = 0;
 				$cnt_fail = 0;
-				
+
+				$privilegeId = DB::table('cms_privileges')->get();
+				$channelId = DB::table('channel')->get();
+				$storeId = DB::table('stores')->get();
+					
 				foreach ($dataExcel as $key => $value) {
-					$check_upload = false;
-					$privilegeId = DB::table('cms_privileges')->where('name', $value->privilege)->value('id');
-					$channelId = DB::table('channel')->where('channel_description', $value->channel)->value('id');
-					$storeId = DB::table('stores')->where('bea_so_store_name', $value->store_name)->where('channel_id', $channelId)->value('id');
-					#\Log::info($storeId);
 					if(!empty($privilegeId) && $privilegeId != 1 && !empty($storeId)){
 						$data = [
 						    'name'  =>  $value->user_name,
-						    'channel_id'   => $channelId,
-						    'stores_id' =>  $storeId,
+						    'channel_id'   => $channelId->where('channel_description', $value->channel)->value('id'),
+						    'stores_id' =>  $storeId->where(['bea_so_store_name'=> $value->store_name,
+								'channel_id'=> $channelId->where('channel_description', $value->channel)->value('id')])->value('id'),
 						    'photo' => 'uploads/mrs-avatar.png',
 						    'email' => $value->email,
 						    'password' => bcrypt('qwerty'),
-						    'id_cms_privileges' => $privilegeId,
+						    'id_cms_privileges' => $privilegeId->where('name', $value->privilege)->value('id'),
 							'status'    => 'ACTIVE',
 							'created_at'    => date('Y-m-d H:i:s'),
 						];
 					}
 					
-					$isItemUpload = DB::table('cms_users')->insert($data);
-
-				// 	DB::beginTransaction();
-
-				// 	try {
-				// 		$isItemUpload = DB::table('cms_users')->insert($data);
-				// 		DB::commit();
-				// 	} catch (\Exception $e) {
-				// 		DB::rollback();
-				// 	}
+					
+					DB::beginTransaction();
+					
+					try {
+						$isItemUpload = DB::table('cms_users')->updateOrInsert(['email' => $value->email], $data);
+						DB::commit();
+					} catch (\Exception $e) {
+						Log::error($e->getMessage());
+						DB::rollback();
+					}
 
 					if ($isItemUpload) {
-						$check_upload = true;
 						$cnt_success++;
                     }
                     else{
-						$check_upload = false;
 						$cnt_fail++;
                     }
 				}
