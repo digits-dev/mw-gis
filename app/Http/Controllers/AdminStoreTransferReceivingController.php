@@ -457,6 +457,7 @@
 				->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
 				->where('pos_pull.item_code', $request->item_code)
 				->where('pos_pull_headers.st_document_number', $request->st_number)
+				->select('pos_pull.id','pos_pull.item_code')
 				->first();
 
 			$serial = DB::table('serials')

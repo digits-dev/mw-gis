@@ -1,4 +1,4 @@
-.select2-dropdown {z-index: 9999 !important}
+	.select2-dropdown {z-index: 9999 !important}
 
 	.bootstrap-timepicker-minute,.bootstrap-timepicker-hour,.bootstrap-timepicker-meridian,.bootstrap-timepicker-second {
 		width:50px !important;
@@ -45,6 +45,16 @@
 	#table_dashboard, #table-detail {
 		font-size: 14px;
 		font-family: "Roboto", sans-serif;
+	}
+
+	#table_dashboard.table-bordered>tbody>tr>td {
+		border-top: 1px solid #222222 !important;
+		border-bottom: 1px solid #222222 !important;
+	}
+
+	#table_dashboard.table-bordered>thead>tr>th {
+		border-top: 1px solid #222222 !important;
+		border-bottom: 1px solid #222222 !important;
 	}
 
 	.login-box-body {
