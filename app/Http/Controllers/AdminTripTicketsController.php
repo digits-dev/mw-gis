@@ -365,7 +365,7 @@ class AdminTripTicketsController extends \crocodicstudio\crudbooster\controllers
         $pendingDR = DB::table('ebs_pull')->where('status','PENDING')
             ->select('stores_id')->distinct()->get()->toArray();
             
-        $pendingSTS = DB::table('pos_pull')->where('status','FOR RECEIVING')
+        $pendingSTS = DB::table('pos_pull_headers')->where('status','FOR RECEIVING')
             // ->where('scheduled_at',date('Y-m-d',strtotime("-1 days")))
             ->where('transport_types_id',1)
             ->select('stores_id_destination')->distinct()->get()->toArray();
@@ -391,7 +391,7 @@ class AdminTripTicketsController extends \crocodicstudio\crudbooster\controllers
             ->where('transport_types_id',1)
             ->select('stores_id')->distinct()->get()->toArray();
             
-        $pendingSTS = DB::table('pos_pull')->where('status','FOR RECEIVING')
+        $pendingSTS = DB::table('pos_pull_headers')->where('status','FOR RECEIVING')
             // ->where('scheduled_at',date('Y-m-d'))
             ->where('transport_types_id',1)
             ->select('stores_id')->distinct()->get()->toArray();
