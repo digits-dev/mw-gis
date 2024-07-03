@@ -44,7 +44,7 @@
 
 	#table_dashboard, #table-detail {
 		font-size: 14px;
-		font-family: Roboto;
+		font-family: "Roboto", sans-serif;
 	}
 
 	.login-box-body {
