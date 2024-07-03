@@ -84,7 +84,7 @@ class AdminTripTicketsController extends \crocodicstudio\crudbooster\controllers
 			'title' => 'Details', 'url' => CRUDBooster::mainpath().'/details/[trip_number]?return_url='.urlencode(\Request::fullUrl()),
 			'icon' => 'fa fa-eye', 'color' => 'primary'];
 		}
-		if (in_array(CRUDBooster::myPrivilegeName(),["Requestor","Gashapon Requestor","Store Head"])) {
+		if (in_array(CRUDBooster::myPrivilegeName(),["Requestor","Gashapon Requestor","Store Head","Cashier"])) {
 		    $this->addaction[] = [
 			'title' => 'Details', 'url' => CRUDBooster::mainpath().'/store-details/[trip_number]?return_url='.urlencode(\Request::fullUrl()),
 			'icon' => 'fa fa-eye', 'color' => 'primary'];
@@ -139,7 +139,7 @@ class AdminTripTicketsController extends \crocodicstudio\crudbooster\controllers
             $this->index_button[] = ['label'=>'Create Outbound Trip','url'=>CRUDBooster::mainpath('create-trip-ticket-outbound'),'icon'=>'fa fa-plus','color'=>'success'];
             $this->index_button[] = ['label'=>'Create Inbound Trip','url'=>CRUDBooster::mainpath('create-trip-ticket-inbound'),'icon'=>'fa fa-plus','color'=>'primary'];
 		    }
-		    if (CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeName(),["Requestor","Gashapon Requestor","Store Head"])) {
+		    if (CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeName(),["Requestor","Gashapon Requestor","Store Head","Cashier"])) {
             $this->index_button[] = ['label'=>'Receive Delivery','url'=>CRUDBooster::mainpath('receive_outbound_trip_ticket'),'icon'=>'fa fa-cube','color'=>'success'];
             $this->index_button[] = ['label'=>'Release ST/TF','url'=>CRUDBooster::mainpath('release_inbound_trip_ticket'),'icon'=>'fa fa-cube','color'=>'primary'];
 		    }
