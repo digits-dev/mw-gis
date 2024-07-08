@@ -138,7 +138,7 @@ class TripTicketController extends Controller
             ->where('trip_type','OUT')
             ->select('ref_number')->get()->toArray();
 
-        return DB::table('pos_pull')
+        return DB::table('pos_pull_headers')
             ->where('stores_id_destination',$store_id)
             //->where('scheduled_at',date('Y-m-d',strtotime("-1 days")))
             ->where('transport_types_id',1)
@@ -157,7 +157,7 @@ class TripTicketController extends Controller
             ->where('trip_type','IN')
             ->select('ref_number')->get()->toArray();
 
-        return DB::table('pos_pull')
+        return DB::table('pos_pull_headers')
             ->where('stores_id',$store_id)
             // ->where('scheduled_at',date('Y-m-d'))
             ->where('transport_types_id',1)
