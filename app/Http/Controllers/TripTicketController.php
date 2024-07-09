@@ -139,13 +139,14 @@ class TripTicketController extends Controller
             ->select('ref_number')->get()->toArray();
 
         return DB::table('pos_pull_headers')
-            ->where('stores_id_destination',$store_id)
-            //->where('scheduled_at',date('Y-m-d',strtotime("-1 days")))
-            ->where('transport_types_id',1)
-            ->where('status','FOR RECEIVING')
-            ->whereNotIn('st_document_number',array_column($created_trips, 'ref_number'))
-            ->select('st_document_number',DB::raw("SUM(quantity) as quantity"))
-            ->groupBy('st_document_number')->distinct()
+            ->leftJoin('pos_pull','pos_pull_headers.id','=','pos_pull.pos_pull_header_id')
+            ->where('pos_pull_headers.stores_id_destination',$store_id)
+            //->where('pos_pull_headers.scheduled_at',date('Y-m-d',strtotime("-1 days")))
+            ->where('pos_pull_headers.transport_types_id',1)
+            ->where('pos_pull_headers.status','FOR RECEIVING')
+            ->whereNotIn('pos_pull_headers.st_document_number',array_column($created_trips, 'ref_number'))
+            ->select('pos_pull_headers.st_document_number',DB::raw("SUM(pos_pull.quantity) as quantity"))
+            ->groupBy('pos_pull_headers.st_document_number')->distinct()
             ->get();
     }
 
@@ -158,13 +159,14 @@ class TripTicketController extends Controller
             ->select('ref_number')->get()->toArray();
 
         return DB::table('pos_pull_headers')
-            ->where('stores_id',$store_id)
+            ->leftJoin('pos_pull','pos_pull_headers.id','=','pos_pull.pos_pull_header_id')
+            ->where('pos_pull_headers.stores_id',$store_id)
             // ->where('scheduled_at',date('Y-m-d'))
-            ->where('transport_types_id',1)
-            ->where('status','FOR RECEIVING')
-            ->whereNotIn('st_document_number',array_column($created_trips, 'ref_number'))
-            ->select('st_document_number',DB::raw("SUM(quantity) as quantity"))
-            ->groupBy('st_document_number')->distinct()
+            ->where('pos_pull_headers.transport_types_id',1)
+            ->where('pos_pull_headers.status','FOR RECEIVING')
+            ->whereNotIn('pos_pull_headers.st_document_number',array_column($created_trips, 'ref_number'))
+            ->select('pos_pull_headers.st_document_number',DB::raw("SUM(pos_pull.quantity) as quantity"))
+            ->groupBy('pos_pull_headers.st_document_number')->distinct()
             ->get();
     }
 
