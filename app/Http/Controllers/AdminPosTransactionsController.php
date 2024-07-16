@@ -63,20 +63,21 @@
 		
 	    public function actionButtonSelected($id_selected,$button_name) {
 	        //Your code here
+			$lineItems = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
 	        if($button_name == 'set_closed_status'){
-				DB::table('pos_pull')->whereIn('id', $id_selected)->update([
+				DB::table('pos_pull_headers')->whereIn('id', $lineItems[0]->pos_pull_header_id)->update([
 					'status' => 'CLOSED'
 				]);
 			} 
 			if($button_name == 'set_received_status'){
-				DB::table('pos_pull')->whereIn('id', $id_selected)->update([
+				DB::table('pos_pull_headers')->whereIn('id', $lineItems[0]->pos_pull_header_id)->update([
 					'status' => 'RECEIVED'
 				]);
 			}
 			if($button_name == 'rerun_st_creation'){
 	            $posItemDetails = array();
-				$stsDetails = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
-				foreach($stsDetails as $value){
+				$stsDetails = DB::table('pos_pull_headers')->where('id', $lineItems[0]->pos_pull_header_id)->first();
+				foreach($lineItems as $key => $value){
 				    $itemDetails = DB::table('items')->where('digits_code',$value->item_code)->first();
 				    if($value->has_serial == 1){
 				        $serials = explode(",",$value->serial);
@@ -99,9 +100,9 @@
 				}
 
                 $refcode = 'BEAPOSMW-STS-'.date('His');
-                $whfrom = DB::table('stores')->where('pos_warehouse', $stsDetails[0]->wh_from)->first();
-                $whto = DB::table('stores')->where('pos_warehouse', $stsDetails[0]->wh_to)->first();
-                $reason = DB::table('reason')->where('id', $stsDetails[0]->reason_id)
+                $whfrom = DB::table('stores')->where('pos_warehouse', $stsDetails->wh_from)->first();
+                $whto = DB::table('stores')->where('pos_warehouse', $stsDetails->wh_to)->first();
+                $reason = DB::table('reason')->where('id', $stsDetails->reason_id)
                     ->where('transaction_type_id',4)->first();
 
                 $transfer_destination = $whfrom->pos_warehouse_transit;
@@ -110,19 +111,18 @@
                     $transfer_destination = $whfrom->pos_warehouse_rma;
                 }
                 
-                $postedST = app(POSPushController::class)->posCreateStockTransfer($refcode, 
+                $postedST = (new POSPushController)->posCreateStockTransfer($refcode, 
                     $whfrom->pos_warehouse_branch, 
                     $whfrom->pos_warehouse, 
                     $transfer_destination, 
-                    $stsDetails[0]->memo, 
+                    $stsDetails->memo, 
                     $posItemDetails);
                 
                 \Log::info('sts create ST: '.json_encode($postedST));
                 //20210215 add checking if st number is not null
                 $st_number = $postedST['data']['record']['fdocument_no'];
-                DB::table('pos_pull')->whereIn('id',$id_selected)->update([
-                    'st_document_number' => $st_number
-                ]);
+                $stsDetails->st_document_number = $st_number;
+				$stsDetails->save();
 
 			} 
 
@@ -142,9 +142,9 @@
 			if($button_name == 'rerun_st_receiving'){
 			    \Log::info('---rerun_st_receiving---');
 			    $posItemDetails = array();
-				$stsDetails = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
-				
-				foreach($stsDetails as $key => $value){
+				// $stsDetails = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
+				$stsDetails = DB::table('pos_pull_headers')->where('id', $lineItems[0]->pos_pull_header_id)->first();
+				foreach($lineItems as $key => $value){
 				    $itemDetails = DB::table('items')->where('digits_code',$value->item_code)->first();
 				    if($value->has_serial == 1){
 				        $serials = explode(",",$value->serial);
@@ -166,11 +166,11 @@
 				    }
 				}
 
-                $refcode = $stsDetails[0]->st_document_number;
-                $receivedDate = $stsDetails[0]->received_st_date;
-                $whfrom = DB::table('stores')->where('pos_warehouse', $stsDetails[0]->wh_from)->first();
-                $whto = DB::table('stores')->where('pos_warehouse', $stsDetails[0]->wh_to)->first();
-                $reason = DB::table('reason')->where('id', $stsDetails[0]->reason_id)
+                $refcode = $stsDetails->st_document_number;
+                $receivedDate = $stsDetails->received_st_date;
+                $whfrom = DB::table('stores')->where('pos_warehouse', $stsDetails->wh_from)->first();
+                $whto = DB::table('stores')->where('pos_warehouse', $stsDetails->wh_to)->first();
+                $reason = DB::table('reason')->where('id', $stsDetails->reason_id)
                     ->where('transaction_type_id',4)->first();
 
                 $transfer_origin = $whfrom->pos_warehouse_transit;
@@ -183,7 +183,6 @@
                     $transfer_destination = $whto->pos_warehouse_rma;
                 }
                 \Log::info('---push to pos---');
-                //app(POSPushController::class)
                 $postedST = (new POSPushController)->posCreateStockTransferReceiving($refcode, 
                     $transfer_branch, 
                     $transfer_origin, 
@@ -195,9 +194,8 @@
                 \Log::info('sts create rcv ST: '.json_encode($postedST));
                 //20210215 add checking if st number is not null
                 $st_number = $postedST['data']['record']['fdocument_no'];
-                DB::table('pos_pull')->whereIn('id',$id_selected)->update([
-                    'received_st_number' => $st_number
-                ]);
+				$stsDetails->received_st_number = $st_number;
+				$stsDetails->save();
 			} 
 	    }
 	    public function hook_query_index(&$query) {
