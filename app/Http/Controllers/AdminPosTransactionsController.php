@@ -130,7 +130,7 @@
 				\Log::info('---reset_serial_flag---');
 				try {
 					DB::table('serials')->whereIn('pos_pull_id', $id_selected)->update([
-						'count' => 0,
+						'counter' => 0,
 						'status' => 'PENDING'
 					]);
 				} catch (\Exception $e) {
