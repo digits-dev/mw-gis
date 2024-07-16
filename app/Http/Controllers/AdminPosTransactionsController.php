@@ -94,6 +94,7 @@
             	$this->button_selected[] = ['label'=>'Set Received Status', 'icon'=>'fa fa-check-circle', 'name'=>'set_received_status'];
             	$this->button_selected[] = ['label'=>'Re-run ST Creation', 'icon'=>'fa fa-refresh', 'name'=>'rerun_st_creation'];
             	$this->button_selected[] = ['label'=>'Re-run ST Receiving', 'icon'=>'fa fa-refresh', 'name'=>'rerun_st_receiving'];
+            	$this->button_selected[] = ['label'=>'Reset Serial Flag', 'icon'=>'fa fa-refresh', 'name'=>'reset_serial_flag'];
             }
 	                
 	        /* 
@@ -288,6 +289,20 @@
                 ]);
 
 			} 
+
+			if($button_name == 'reset_serial_flag'){
+				\Log::info('---reset_serial_flag---');
+				try {
+					DB::table('serials')->whereIn('pos_pull_id', $id_selected)->update([
+						'count' => 0,
+						'status' => 'PENDING'
+					]);
+				} catch (\Exception $e) {
+					\Log::error('Error!'.$e->getMessage());
+				}
+				\Log::info('---done resetting serial_flag---');
+			}
+			
 			if($button_name == 'rerun_st_receiving'){
 			    \Log::info('---rerun_st_receiving---');
 			    $posItemDetails = array();
