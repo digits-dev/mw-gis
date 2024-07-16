@@ -92,6 +92,14 @@
 				$this->button_selected[] = ['label'=>'Sync Item RTL Qty',
 											'icon'=>'fa fa-check-circle-o',
 											'name'=>'sync_rtl_qty'];
+
+				$this->button_selected[] = ['label'=>'Sync Item LAZADA Qty',
+											'icon'=>'fa fa-check-circle-o',
+											'name'=>'sync_lazada_qty'];
+
+				$this->button_selected[] = ['label'=>'Sync Item SHOPEE Qty',
+											'icon'=>'fa fa-check-circle-o',
+											'name'=>'sync_shopee_qty'];
 	        }
 
 	        $this->index_statistic = array();
@@ -101,6 +109,7 @@
 
 	    public function actionButtonSelected($id_selected,$button_name) {
 	        //Your code here
+			$items = Item::whereIn('id',$id_selected)->get(['id','digits_code']);
             if($button_name == 'set_item_serialize') {
             	Item::whereIn('id',$id_selected)->update([ 'has_serial'=> 1 ]);
             	
@@ -122,19 +131,42 @@
 				}
             } 
 			else if($button_name == 'sync_rtl_qty'){
-				$items = Item::whereIn('id',$id_selected)->get(['id','digits_code']);
 				foreach ($items as $key => $value) {
-					try {
-						$rtlQty = OnhandQty::getOnhand()->where('mtl_system_items_b.segment1',$value->digits_code)->first();
-						$item = Item::find($value->id);
-						$item->reserve_qty = $rtlQty->quantity;
-						$item->save();
-					} catch (\Exception $e) {
-						\Log::error('Error!'.$e->getMessage());
-					}
+					self::updateOnhandQty($value);
+				}
+			}
+
+			else if($button_name == 'sync_shopee_qty'){
+				foreach ($items as $key => $value) {
+					self::updateOnhandQty($value, 'SHOPEE');
+				}
+			}
+
+			else if($button_name == 'sync_lazada_qty'){
+				foreach ($items as $key => $value) {
+					self::updateOnhandQty($value, 'LAZADA');
 				}
 			}
 			
 	    }
+
+		public function updateOnhandQty($item, $subInventory = 'RETAIL'){
+			try {
+				$onhandQty = OnhandQty::getOnhand($subInventory)->where('mtl_system_items_b.segment1',$item->digits_code)->first();
+				$item = Item::find($item->id);
+				if($subInventory == 'RETAIL'){
+					$item->reserve_qty = $onhandQty->quantity;
+				}
+				elseif ($subInventory == 'LAZADA') {
+					$item->lazada_reserve_qty = $onhandQty->quantity;
+				}
+				elseif ($subInventory == 'SHOPEE') {
+					$item->shopee_reserve_qty = $onhandQty->quantity;
+				}
+				$item->save();
+			} catch (\Exception $e) {
+				\Log::error('Error!'.$e->getMessage());
+			}
+		}
 
 	}
