@@ -2,7 +2,8 @@
 
 	namespace App\Http\Controllers;
 
-	use Session;
+use App\PosPullHeader;
+use Session;
 	use Request;
 	use DB;
 	use CRUDBooster;
@@ -76,7 +77,7 @@
 			}
 			if($button_name == 'rerun_st_creation'){
 	            $posItemDetails = array();
-				$stsDetails = DB::table('pos_pull_headers')->where('id', $lineItems[0]->pos_pull_header_id)->first();
+				$stsDetails = PosPullHeader::find($lineItems[0]->pos_pull_header_id);
 				foreach($lineItems as $key => $value){
 				    $itemDetails = DB::table('items')->where('digits_code',$value->item_code)->first();
 				    if($value->has_serial == 1){
@@ -143,7 +144,7 @@
 			    \Log::info('---rerun_st_receiving---');
 			    $posItemDetails = array();
 				// $stsDetails = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
-				$stsDetails = DB::table('pos_pull_headers')->where('id', $lineItems[0]->pos_pull_header_id)->first();
+				$stsDetails = PosPullHeader::find($lineItems[0]->pos_pull_header_id);
 				foreach($lineItems as $key => $value){
 				    $itemDetails = DB::table('items')->where('digits_code',$value->item_code)->first();
 				    if($value->has_serial == 1){
