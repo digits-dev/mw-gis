@@ -155,30 +155,27 @@
 			$data['transfer_from'] = StoreName::find($stDetails[0]->stores_id);
 			$data['transfer_to'] = StoreName::getStoreByName($stDetails[0]->wh_to)->first();
 			$data['stQuantity'] = Pullout::getItemQty($st_number);
-			$items = Pullout::getItems($st_number)->get();
+			$items = Pullout::with(['item','serial'])->getItems($st_number)->get();
+			$item_data = [];
 
 			foreach ($items as $key => $value) {
 
-				$serials = DB::table('serials')->where('pullout_id',$value->id)->select('serial_number')->get();
-				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
-
 				$serial_data = array();
-				foreach ($serials as $serial) {
+				foreach ($value->serial ?? [] as $serial) {
 					array_push($serial_data, $serial->serial_number);
 				}
 
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
-					'upc_code' => $item_detail->upc_code,
-					'item_description' => $item_detail->item_description,
-					'price' => $item_detail->store_cost,
+					'upc_code' => $value->item->upc_code,
+					'item_description' => $value->item->item_description,
+					'price' => $value->item->store_cost,
 					'st_quantity' => $value->quantity,
 					'st_serial_numbers' => $serial_data
 				];
 			}
 
 			$data['items'] = $item_data;
-			
 			$this->cbView("pullout.detail", $data);
 		}
 
@@ -191,24 +188,22 @@
 			$data['transfer_from'] = StoreName::find($stDetails[0]->stores_id);
 			$data['transfer_to'] = StoreName::getStoreByName($stDetails[0]->wh_to)->first();
 			$data['stQuantity'] = Pullout::getItemQty($st_number);
-			$items = Pullout::getItems($st_number)->get();
+			$items = Pullout::with(['item','serial'])->getItems($st_number)->get();
+			$item_data = [];
 
 			foreach ($items as $key => $value) {
 
-				$serials = DB::table('serials')->where('pullout_id',$value->id)->select('serial_number')->get();
-				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
-
 				$serial_data = array();
-				foreach ($serials as $serial) {
+				foreach ($value->serial ?? [] as $serial) {
 					array_push($serial_data, $serial->serial_number);
 				}
 
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
-					'upc_code' => $item_detail->upc_code,
-					'bea_item_id' => $item_detail->bea_item_id,
-					'item_description' => $item_detail->item_description,
-					'price' => $item_detail->store_cost,
+					'upc_code' => $value->item->upc_code,
+					'bea_item_id' => $value->item->bea_item_id,
+					'item_description' => $value->item->item_description,
+					'price' => $value->item->store_cost,
 					'st_quantity' => $value->quantity,
 					'st_serial_numbers' => $serial_data
 				];
