@@ -4,10 +4,6 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
-use PDO;
-use DB;
-use Yajra\Pdo\Oci8\Statement;
-use Yajra\Pdo\Oci8\Exceptions\Oci8Exception;
 
 class Kernel extends ConsoleKernel
 {

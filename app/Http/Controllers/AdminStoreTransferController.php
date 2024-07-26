@@ -18,6 +18,13 @@
 		private const ForSchedule  = 'FOR SCHEDULE';
 		private const ForReceiving = 'FOR RECEIVING';
 		private const Confirmed = 'CONFIRMED';
+
+		public function __construct()
+		{
+			// Apply the middleware to a specific method
+			$this->middleware('check_access_time')->only('getScan');
+		}
+
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE

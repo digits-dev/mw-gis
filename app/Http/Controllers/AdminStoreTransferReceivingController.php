@@ -10,12 +10,19 @@
 	use App\PosPullLines;
 
 	class AdminStoreTransferReceivingController extends \crocodicstudio\crudbooster\controllers\CBController {
+
 		private const Pending = 'PENDING';
 		private const Void    = 'VOID';
 		private const ForSchedule  = 'FOR SCHEDULE';
 		private const ForReceiving = 'FOR RECEIVING';
 		private const Confirmed = 'CONFIRMED';
 		private const Received = 'RECEIVED';
+
+		public function __construct()
+		{
+			// Apply the middleware to a specific method
+			$this->middleware('check_access_time')->only('getReceiving');
+		}
 
 	    public function cbInit() {
 

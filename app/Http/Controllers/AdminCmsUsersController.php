@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers;
 
+use App\BatchingAccess;
 use Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Input;
@@ -28,6 +29,7 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 		$this->col[] = array("label"=>"Privilege","name"=>"id_cms_privileges","join"=>"cms_privileges,name");
 		$this->col[] = array("label"=>"Channel","name"=>"channel_id","join"=>"channel,channel_description");
 		$this->col[] = array("label"=>"Store","name"=>"stores_id");
+		$this->col[] = array("label"=>"Batch","name"=>"batch_id");
 		$this->col[] = array("label"=>"Photo","name"=>"photo","image"=>1);	
 		$this->col[] = array("label"=>"Status","name"=>"status");
 		# END COLUMNS DO NOT REMOVE THIS LINE
@@ -61,6 +63,12 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 			$this->button_selected[] = ["label"=>"Set Status ACTIVE ","icon"=>"fa fa-check-circle","name"=>"set_status_ACTIVE"];
 			$this->button_selected[] = ["label"=>"Set Status INACTIVE","icon"=>"fa fa-times-circle","name"=>"set_status_INACTIVE"];
 			$this->button_selected[] = ["label"=>"Reset Password","icon"=>"fa fa-refresh","name"=>"reset_password"];
+			$this->button_selected[] = ["label"=>"Reset Batch","icon"=>"fa fa-refresh","name"=>"reset_batch"];
+			$batches = BatchingAccess::active()->get();
+
+			foreach ($batches as $key => $value) {
+				$this->button_selected[] = ["label"=>"Tag Batch {$value->batching_id}","icon"=>"fa fa-check-circle","name"=>"tag_batch_{$value->batching_id}"];
+			}
 		}
 
 		$this->script_js[] ='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js';
@@ -69,6 +77,16 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 	
 	public function actionButtonSelected($id_selected,$button_name) {
 		//Your code here
+		$batches = BatchingAccess::active()->get();
+
+		foreach ($batches as $key => $value) {
+			if($button_name == "tag_batch_{$value->batching_id}"){
+				DB::table('cms_users')->whereIn('id',$id_selected)->update([
+					'batch_id' => $value->batching_id, 
+					'updated_at' => date('Y-m-d H:i:s')
+				]);
+			}
+		}
 		switch ($button_name) {
 			case 'set_status_ACTIVE':
 				DB::table('cms_users')->whereIn('id',$id_selected)->update([
@@ -88,10 +106,16 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 					'updated_at' => date('Y-m-d H:i:s')
 				]);
 				break;
+			case 'reset_batch':
+				DB::table('cms_users')->whereIn('id',$id_selected)->update([
+					'batch_id' => null,
+					'updated_at' => date('Y-m-d H:i:s')
+				]);
+				break;
 			default:
 				# code...
 				break;
-		}    
+		}  
 	}
 
 	public function getProfile() {			
@@ -267,6 +291,7 @@ class AdminCmsUsersController extends \crocodicstudio\crudbooster\controllers\CB
 	
 	public function hook_row_index($column_index,&$column_value) {	        
 		//Your code here
+		$col_values = '';
 		if($column_index == 5){
 			$storeLists = $this->storeListing($column_value);
 			

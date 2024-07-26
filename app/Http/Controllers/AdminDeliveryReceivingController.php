@@ -11,6 +11,12 @@ use Session;
 
 	class AdminDeliveryReceivingController extends \crocodicstudio\crudbooster\controllers\CBController {
 
+		public function __construct()
+		{
+			// Apply the middleware to a specific method
+			$this->middleware('check_access_time')->only('getReceiving');
+		}
+
 	    public function cbInit() {
 
 			# START CONFIGURATION DO NOT REMOVE THIS LINE

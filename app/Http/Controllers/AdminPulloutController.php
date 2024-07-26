@@ -12,6 +12,11 @@
 
 	class AdminPulloutController extends \crocodicstudio\crudbooster\controllers\CBController {
 
+		public function __construct()
+		{
+			// Apply the middleware to a specific method
+			$this->middleware('check_access_time')->only('getSTW','getRMA');
+		}
 	
 	    public function cbInit() {
 	    	# START CONFIGURATION DO NOT REMOVE THIS LINE
