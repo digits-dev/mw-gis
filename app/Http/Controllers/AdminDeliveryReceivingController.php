@@ -14,7 +14,7 @@ use Session;
 		public function __construct()
 		{
 			// Apply the middleware to a specific method
-			$this->middleware('check_access_time')->only('getReceiving');
+			$this->middleware('checkAccessTime')->only('getReceiving');
 		}
 
 	    public function cbInit() {

@@ -19,7 +19,6 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\PreventBackHistory::class,
-        \App\Http\Middleware\CheckAccessTime::class,
     ];
 
     /**
@@ -60,6 +59,6 @@ class Kernel extends HttpKernel
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'preventbackhistory' => \App\Http\Middleware\PreventBackHistory::class,
-        'check_access_time' => \App\Http\Middleware\CheckAccessTime::class,
+        'checkAccessTime' => \App\Http\Middleware\CheckAccessTime::class,
     ];
 }

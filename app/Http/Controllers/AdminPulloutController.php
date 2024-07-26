@@ -15,7 +15,7 @@
 		public function __construct()
 		{
 			// Apply the middleware to a specific method
-			$this->middleware('check_access_time')->only('getSTW','getRMA');
+			$this->middleware('checkAccessTime')->only('getSTW','getRMA');
 		}
 	
 	    public function cbInit() {

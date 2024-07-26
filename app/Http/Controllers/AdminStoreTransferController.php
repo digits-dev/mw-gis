@@ -22,7 +22,7 @@
 		public function __construct()
 		{
 			// Apply the middleware to a specific method
-			$this->middleware('check_access_time')->only('getScan');
+			$this->middleware('checkAccessTime')->only('getScan');
 		}
 
 	    public function cbInit() {
