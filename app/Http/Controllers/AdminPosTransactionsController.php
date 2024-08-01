@@ -66,7 +66,7 @@ use Session;
 	        //Your code here
 			$lineItems = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
 	        if($button_name == 'set_closed_status'){
-				DB::table('pos_pull_headers')->whereIn('id', $lineItems[0]->pos_pull_header_id)->update([
+				DB::table('pos_pull_headers')->where('id', $lineItems[0]->pos_pull_header_id)->update([
 					'status' => 'CLOSED'
 				]);
 
@@ -75,7 +75,7 @@ use Session;
 				]);
 			} 
 			if($button_name == 'set_received_status'){
-				DB::table('pos_pull_headers')->whereIn('id', $lineItems[0]->pos_pull_header_id)->update([
+				DB::table('pos_pull_headers')->where('id', $lineItems[0]->pos_pull_header_id)->update([
 					'status' => 'RECEIVED'
 				]);
 
