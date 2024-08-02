@@ -21,11 +21,11 @@ Route::get('/', function () {
 //     return phpinfo();
 // });
 
-Route::group(['middleware' => ['api','authapi'], 'prefix' => 'api'], function(){
+Route::group(['middleware' => ['authapi'], 'prefix' => 'api'], function(){
     //dr api
     Route::get('get_deliveries','DeliveryController@getPendingDelivery');
     //pullout api
-    Route::post('get_pullouts','PulloutController@getApprovePullouts');
+    Route::post('create_pullouts','PulloutController@createPullouts');
 });
 
 

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Request;
 
 class PulloutController extends Controller
 {
-    public function getApprovePullouts() {
+    public function createPullouts() {
         $posts = Request::all();
 
         $debug_mode_message = 'You are in debug mode !';
