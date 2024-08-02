@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Delivery;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Session;
 use DB;
@@ -61,69 +62,50 @@ class DeliveryController extends Controller
         return view('delivery.index',$data)->render();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
+    public function getPendingDelivery(){
+        $deliveries = [];
+        // $datefrom = '2023-06-02';
+        // $dateto = '2023-06-02';
+        $datefrom = Carbon::today()->format('Y-m-d');
+        $dateto = Carbon::today()->subDays(1)->format('Y-m-d');
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
+        //get digitswarehouse code
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Delivery  $delivery
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Delivery $delivery)
-    {
-        //
-    }
+        $deliveryItems = DB::table('ebs_pull')
+            ->leftJoin('serials','ebs_pull.id','=','serials.ebs_pull_id')
+            ->leftJoin('stores', function($join) {
+                $join->on('ebs_pull.customer_name', '=', 'stores.bea_so_store_name')
+                ->orOn('ebs_pull.customer_name', '=', 'stores.bea_mo_store_name');
+            })
+            ->where('ebs_pull.status','RECEIVED') //change the status to RECEIVED (ready for push)
+            ->whereBetween('ebs_pull.data_pull_date',[$datefrom, $dateto])
+            ->select(
+                'ebs_pull.*',
+                'serials.serial_number',
+                // 'stores.warehouse_code',
+                'stores.pos_warehouse_name'
+            )->get();
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Delivery  $delivery
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Delivery $delivery)
-    {
-        //
-    }
+        foreach ($deliveryItems ?? [] as $item) {
+            if (!isset($deliveries[$item->dr_number])) {
+                $deliveries[$item->dr_number] = [
+                    'reference_code' => $item->dr_number,
+                    'transaction_date' => $item->data_pull_date,
+                    'from_warehouse' => '', //digitswarehouse
+                    'destination_store' => $item->pos_warehouse_name,
+                    'memo' => $item->customer_po,
+                    'created_date' => $item->data_pull_date,
+                    'delivery_lines' => []
+                ];
+            }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Delivery  $delivery
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, Delivery $delivery)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Delivery  $delivery
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(Delivery $delivery)
-    {
-        //
+            $deliveries[$item->dr_number]['delivery_lines'][] = [
+                'digits_code' => $item->ordered_item,
+                'qty' => $item->shipped_quantity,
+                'serial_number' => $item->serial_number
+            ];
+        }
+        
+        return (json_encode(array_values($deliveries)));
     }
 }

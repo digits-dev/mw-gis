@@ -60,5 +60,6 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'preventbackhistory' => \App\Http\Middleware\PreventBackHistory::class,
         'checkAccessTime' => \App\Http\Middleware\CheckAccessTime::class,
+        'authapi' => \App\Http\Middleware\ApiAuth::class,
     ];
 }

@@ -11,15 +11,57 @@
 |
 */
 
-use App\Delivery;
 use App\Http\Controllers\ReportsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect('admin/login');
 });
-Route::get('/php-info', function () {
-    return phpinfo();
+// Route::get('/php-info', function () {
+//     return phpinfo();
+// });
+
+Route::group(['middleware' => ['api','authapi'], 'prefix' => 'api'], function(){
+    //dr api
+    Route::get('get_deliveries','DeliveryController@getPendingDelivery');
+    //pullout api
+    Route::post('get_pullouts','PulloutController@getApprovePullouts');
+});
+
+
+Route::group(['middleware' => ['web'], 'prefix' => config('crudbooster.ADMIN_PATH'), 'namespace' => 'App\Http\Controllers'], function(){
+
+    Route::group(['prefix' => 'wrs'], function () {
+        Route::get('receive_stw','AdminWrsController@getReceiveSTW');
+        Route::get('receive_others','AdminWrsController@getReceiveOther');
+        Route::get('details/{wrs_number}','AdminWrsController@getWrsDetail');
+        Route::get('print/{wrs_number}','AdminWrsController@getWrsPrint');
+        Route::get('stw/{st_number}','AdminWrsController@getSTWDetails')->name('getSTWDetails');
+        Route::get('waive-items/{item_code}','AdminWrsController@searchItem');
+        
+        Route::post('received_stw','AdminWrsController@saveReceiveSTW')->name('saveReceiveSTW');
+        Route::post('received_others','AdminWrsController@saveReceiveOthers')->name('saveReceiveOthers');
+        Route::post('stw_reset_serial','AdminWrsController@resetSerialCounter')->name('stwResetSerialCounter');
+    });
+
+    Route::group(['prefix' => 'trip_tickets'], function () {
+        Route::get('receive_outbound_trip_ticket','AdminTripTicketsController@getReceiveTripTicket');
+        Route::get('release_inbound_trip_ticket','AdminTripTicketsController@getReleaseTripTicket');
+        Route::get('details/{trip_number}','AdminTripTicketsController@getDetail');
+        Route::get('store-details/{trip_number}','AdminTripTicketsController@getTripStoreDetail');
+        Route::get('create-trip-ticket-outbound','AdminTripTicketsController@getTripTicketOutbound');
+        Route::get('create-trip-ticket-inbound','AdminTripTicketsController@getTripTicketInbound');
+        Route::get('update-trip/{trip_number}', 'AdminTripTicketsController@getUpdateTripTicket');
+        Route::get('print-trip/{trip_number}', 'AdminTripTicketsController@getPrintTripTicket');
+        Route::get('export-trip-tickets','AdminTripTicketsController@exportTripTicket')->name('trip-ticket.export');
+
+        Route::post('create_outbound_trip_ticket','AdminTripTicketsController@saveOutboundTripTicket')->name('saveOutboundTripTicket');
+        Route::post('create_inbound_trip_ticket','AdminTripTicketsController@saveInboundTripTicket')->name('saveInboundTripTicket');
+        Route::post('update_trip_ticket','AdminTripTicketsController@updateTripTicket')->name('updateTripTicket');
+        Route::post('receive_outbound_trip_ticket','AdminTripTicketsController@saveReceiveTripTicket')->name('saveReceiveTripTicket');
+        Route::post('release_inbound_trip_ticket','AdminTripTicketsController@saveReleaseTripTicket')->name('saveReleaseTripTicket');
+    });
+
 });
 
 Route::get('/admin/get_pending_dr/{store_id}','TripTicketController@getPendingDrByStore');
@@ -30,36 +72,11 @@ Route::get('/admin/get_receiving_outbound_trips/{store_id}/{trip_number}','TripT
 Route::get('/admin/get_releasing_inbound_trips/{store_id}/{trip_number}','TripTicketController@getReleasingInboundByStore');
 
 //wrs
-Route::get('/admin/wrs/receive_stw','AdminWrsController@getReceiveSTW');
-Route::get('/admin/wrs/receive_others','AdminWrsController@getReceiveOther');
-Route::post('/admin/received_stw','AdminWrsController@saveReceiveSTW')->name('saveReceiveSTW');
-Route::post('/admin/received_others','AdminWrsController@saveReceiveOthers')->name('saveReceiveOthers');
-Route::get('/admin/wrs/details/{wrs_number}','AdminWrsController@getWrsDetail');
-Route::get('/admin/wrs/print/{wrs_number}','AdminWrsController@getWrsPrint');
 
-Route::get('/admin/wrs/stw/{st_number}','AdminWrsController@getSTWDetails')->name('getSTWDetails');
-Route::get('/admin/wrs/waive-items/{item_code}','AdminWrsController@searchItem');
-Route::post('/admin/wrs/stw_reset_serial','AdminWrsController@resetSerialCounter')->name('stwResetSerialCounter');
 
 //end-wrd
 
-Route::post('/admin/create_outbound_trip_ticket','AdminTripTicketsController@saveOutboundTripTicket')->name('saveOutboundTripTicket');
-Route::post('/admin/create_inbound_trip_ticket','AdminTripTicketsController@saveInboundTripTicket')->name('saveInboundTripTicket');
-Route::post('/admin/update_trip_ticket','AdminTripTicketsController@updateTripTicket')->name('updateTripTicket');
 
-Route::post('/admin/receive_outbound_trip_ticket','AdminTripTicketsController@saveReceiveTripTicket')->name('saveReceiveTripTicket');
-Route::post('/admin/release_inbound_trip_ticket','AdminTripTicketsController@saveReleaseTripTicket')->name('saveReleaseTripTicket');
-
-Route::get('/admin/trip_tickets/receive_outbound_trip_ticket','AdminTripTicketsController@getReceiveTripTicket');
-Route::get('/admin/trip_tickets/release_inbound_trip_ticket','AdminTripTicketsController@getReleaseTripTicket');
-
-Route::get('/admin/trip_tickets/details/{trip_number}','AdminTripTicketsController@getDetail');
-Route::get('/admin/trip_tickets/store-details/{trip_number}','AdminTripTicketsController@getTripStoreDetail');
-Route::get('/admin/trip_tickets/create-trip-ticket-outbound','AdminTripTicketsController@getTripTicketOutbound');
-Route::get('/admin/trip_tickets/create-trip-ticket-inbound','AdminTripTicketsController@getTripTicketInbound');
-Route::get('/admin/trip_tickets/update-trip/{trip_number}', 'AdminTripTicketsController@getUpdateTripTicket');
-Route::get('/admin/trip_tickets/print-trip/{trip_number}', 'AdminTripTicketsController@getPrintTripTicket');
-Route::get('/admin/trip_tickets/export-trip-tickets','AdminTripTicketsController@exportTripTicket')->name('trip-ticket.export');
 
 //BEA
 Route::get('/admin/close_trip/{p_delivery_id}','EBSPushController@closeTrip')->name('ebspush.closeTrip');
