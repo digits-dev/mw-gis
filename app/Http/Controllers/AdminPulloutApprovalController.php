@@ -307,22 +307,22 @@ use App\StoreName;
 
 					elseif(in_array($request->channel_id, [2,7,10,11]) && $request->transaction_type == 'STW'){ //fra
 						
-						if(substr($request->digits_code[0], 0 , 1) == '7'){
-							foreach ($request->digits_code as $key_item => $value_item) {
-								if(!empty(app(EBSPullController::class)->getCreatedMOR($request->st_number))){
-									CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' has already been updated!','warning')->send();
-								}
-								app(EBSPushController::class)->createMOR($request->bea_item[$key_item], $store->doo_subinventory, ($request->st_quantity[$key_item])*(-1), $store->org_subinventory, $request->st_number, 224, $request->reason_mo, 223);
-							}
-						}
-						else{
+						// if(substr($request->digits_code[0], 0 , 1) == '7'){
+						// 	foreach ($request->digits_code as $key_item => $value_item) {
+						// 		if(!empty(app(EBSPullController::class)->getCreatedMOR($request->st_number))){
+						// 			CRUDBooster::redirect(CRUDBooster::mainpath(),'ST# '.$request->st_number.' has already been updated!','warning')->send();
+						// 		}
+						// 		app(EBSPushController::class)->createMOR($request->bea_item[$key_item], $store->doo_subinventory, ($request->st_quantity[$key_item])*(-1), $store->org_subinventory, $request->st_number, 224, $request->reason_mo, 223);
+						// 	}
+						// }
+						// else{
 							$sorHeader = app(EBSPushController::class)->sorHeaders($customer->price_list_id, 224, $customer->sold_to_org_id, $customer->ship_to_org_id, $customer->invoice_to_org_id, $request->st_number);
 							foreach ($request->digits_code as $key_item => $value_item) {
 								$line_number = $key_item;
 								$line_number++;
 								app(EBSPushController::class)->sorLines($line_number, $sorHeader['sor_header'], $request->bea_item[$key_item], $request->st_quantity[$key_item], $customer->price_list_id, $request->price[$key_item], $request->price[$key_item], $request->reason_so, 224, $store->org_subinventory);
 							}
-						}
+						// }
 
 						$pullout_status = app(StatusWorkflowController::class)->getSTWNextStatus(
 							$pullout->channel_id, 
