@@ -138,6 +138,7 @@ class DeliveryController extends Controller
             }
 
             $deliveries[$item->dr_number]['delivery_lines'][] = [
+                'line_number' => $item->line_number,
                 'digits_code' => $item->ordered_item,
                 'item_description' => $item->item_description,
                 'price' => $item->current_srp,
