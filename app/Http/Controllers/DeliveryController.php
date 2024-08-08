@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Delivery;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 use Session;
 use DB;
 use CRUDbooster;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Validator;
 
 class DeliveryController extends Controller
 //\crocodicstudio\crudbooster\controllers\CBController
@@ -64,35 +65,72 @@ class DeliveryController extends Controller
 
     public function getPendingDelivery(){
         $deliveries = [];
-        // $datefrom = '2023-06-02';
-        // $dateto = '2023-06-02';
-        $datefrom = Carbon::today()->format('Y-m-d');
-        $dateto = Carbon::today()->subDays(1)->format('Y-m-d');
+
+        $validator = Validator::make([
+            'datefrom' => request('datefrom'),
+            'dateto' => request('dateto'),
+        ],[
+            'datefrom' => 'required',
+            'dateto' => 'required'
+        ]);
+
+        if($validator->fails()){
+            $result['api_status']  = 0;
+            $result['api_message'] = 'error';
+            $result['data'] = [
+                'Invalid date range. Please enter a valid date range in Y-m-d H:i:s format!'
+            ];
+            return response()->json( $result, 200 );
+        }
+
+        $datefrom = Carbon::parse(request('datefrom'))->format('Y-m-d H:i:s');
+        $dateto = Carbon::parse(request('dateto'))->format('Y-m-d H:i:s');
 
         //get digitswarehouse code
 
+        $deliveriesQty = DB::table('ebs_pull')
+            ->where('ebs_pull.status','RECEIVED') //change the status to RECEIVED (ready for push)
+            ->whereBetween('ebs_pull.received_at',[$datefrom, $dateto])
+            ->select(
+                'ebs_pull.dr_number',
+                DB::raw('SUM(ebs_pull.shipped_quantity) as total_qty')
+            )->take(100)
+            ->groupBy('ebs_pull.dr_number')
+            ->get()->toArray();
+        
+        $arraySumQty = [];
+       
+        foreach ($deliveriesQty as $item) {
+            $arraySumQty[$item->dr_number] = $item->total_qty;
+        }
+        
         $deliveryItems = DB::table('ebs_pull')
             ->leftJoin('serials','ebs_pull.id','=','serials.ebs_pull_id')
+            ->leftJoin('items','ebs_pull.ordered_item','=','items.digits_code')
             ->leftJoin('stores', function($join) {
                 $join->on('ebs_pull.customer_name', '=', 'stores.bea_so_store_name')
                 ->orOn('ebs_pull.customer_name', '=', 'stores.bea_mo_store_name');
             })
             ->where('ebs_pull.status','RECEIVED') //change the status to RECEIVED (ready for push)
-            ->whereBetween('ebs_pull.data_pull_date',[$datefrom, $dateto])
+            ->whereBetween('ebs_pull.received_at',[$datefrom, $dateto])
             ->select(
                 'ebs_pull.*',
                 'serials.serial_number',
+                'items.digits_code',
+                'items.item_description',
+                'items.current_srp',                
                 // 'stores.warehouse_code',
                 'stores.pos_warehouse_name'
-            )->get();
+            )->take(100)->get();
 
         foreach ($deliveryItems ?? [] as $item) {
             if (!isset($deliveries[$item->dr_number])) {
                 $deliveries[$item->dr_number] = [
                     'reference_code' => $item->dr_number,
                     'transaction_date' => $item->data_pull_date,
-                    'from_warehouse' => '', //digitswarehouse
+                    'from_warehouse' => 'DIGITS WAREHOUSE', //digitswarehouse
                     'destination_store' => $item->pos_warehouse_name,
+                    'total_qty' => $arraySumQty[$item->dr_number],
                     'memo' => $item->customer_po,
                     'created_date' => $item->data_pull_date,
                     'delivery_lines' => []
@@ -101,11 +139,18 @@ class DeliveryController extends Controller
 
             $deliveries[$item->dr_number]['delivery_lines'][] = [
                 'digits_code' => $item->ordered_item,
-                'qty' => $item->shipped_quantity,
+                'item_description' => $item->item_description,
+                'price' => $item->current_srp,
+                'uom' => 'PIECES',
+                'qty' => (!is_null($item->serial_number)) ? 1 : $item->shipped_quantity,
                 'serial_number' => $item->serial_number
             ];
         }
         
-        return (json_encode(array_values($deliveries)));
+        $result['api_status']  = 1;
+		$result['api_message'] = 'success';
+        $result['data'] = array_values($deliveries);
+        
+        return response()->json( $result, 200 );
     }
 }
