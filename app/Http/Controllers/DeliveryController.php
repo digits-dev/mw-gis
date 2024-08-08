@@ -142,7 +142,7 @@ class DeliveryController extends Controller
                 'digits_code' => $item->ordered_item,
                 'item_description' => $item->item_description,
                 'price' => $item->current_srp,
-                'uom' => 'PIECES',
+                'uom' => 'PCS',
                 'qty' => (!is_null($item->serial_number)) ? 1 : $item->shipped_quantity,
                 'serial_number' => $item->serial_number
             ];
