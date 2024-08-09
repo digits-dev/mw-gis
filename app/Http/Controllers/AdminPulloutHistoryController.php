@@ -3,8 +3,6 @@
 	use Session;
 	use DB;
 	use CRUDBooster;
-	use Illuminate\Support\Facades\Input;
-	use Illuminate\Support\Facades\File;
 	use Illuminate\Http\Request;
 	use App\ApprovalMatrix;
 	use Excel;
@@ -48,39 +46,8 @@
 			$this->col[] = ["label"=>"Received Date","name"=>"received_st_date"];
 			$this->col[] = ["label"=>"Created Date","name"=>"created_date"];
 			
-
-			# END COLUMNS DO NOT REMOVE THIS LINE
-			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
 			
-			# END FORM DO NOT REMOVE THIS LINE     
-
-			/* 
-	        | ---------------------------------------------------------------------- 
-	        | Sub Module
-	        | ----------------------------------------------------------------------     
-			| @label          = Label of action 
-			| @path           = Path of sub module
-			| @foreign_key 	  = foreign key of sub table/module
-			| @button_color   = Bootstrap Class (primary,success,warning,danger)
-			| @button_icon    = Font Awesome Class  
-			| @parent_columns = Sparate with comma, e.g : name,created_at
-	        | 
-	        */
-	        $this->sub_module = array();
-
-
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add More Action Button / Menu
-	        | ----------------------------------------------------------------------     
-	        | @label       = Label of action 
-	        | @url         = Target URL, you can use field alias. e.g : [id], [name], [title], etc
-	        | @icon        = Font awesome class icon. e.g : fa fa-bars
-	        | @color 	   = Default is primary. (primary, warning, succecss, info)     
-	        | @showIf 	   = If condition when action show. Use field alias. e.g : [id] == 1
-	        | 
-	        */
 			$this->addaction = array();
 			if(in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])){
 				$this->addaction[] = ['title'=>'Print','url'=>CRUDBooster::mainpath('print').'/[st_document_number]','icon'=>'fa fa-print','color'=>'info','showIf'=>"[status]=='FOR RECEIVING'"];
@@ -94,16 +61,6 @@
 			$this->addaction[] = ['title'=>'Detail','url'=>CRUDBooster::mainpath('details').'/[st_document_number]?return_url='.urlencode(\Request::fullUrl()),'icon'=>'fa fa-eye','color'=>'primary'];
 	        
 			
-			/* 
-	        | ---------------------------------------------------------------------- 
-	        | Add More Button Selected
-	        | ----------------------------------------------------------------------     
-	        | @label       = Label of action 
-	        | @icon 	   = Icon from fontawesome
-	        | @name 	   = Name of button 
-	        | Then about the action, you should code at actionButtonSelected method 
-	        | 
-	        */
 	        $this->button_selected = array();
             if(CRUDBooster::myPrivilegeName() == "Online WSDM"){
 				$this->button_selected[] = ['label'=>'Print Picklist', 'icon'=>'fa fa-print', 'name'=>'print_picklist'];
@@ -111,28 +68,7 @@
 			else if(CRUDBooster::myPrivilegeName() == "Online Ops"){
 				$this->button_selected[] = ['label'=>'Close Trxn', 'icon'=>'fa fa-print', 'name'=>'close_transaction'];
 			}
-	                
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add alert message to this module at overheader
-	        | ----------------------------------------------------------------------     
-	        | @message = Text of message 
-	        | @type    = warning,success,danger,info        
-	        | 
-	        */
-	        $this->alert = array();
-	                
-
-	        
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add more button to header button 
-	        | ----------------------------------------------------------------------     
-	        | @label = Name of button 
-	        | @url   = URL Target
-	        | @icon  = Icon from Awesome.
-	        | 
-	        */
+			
 			$this->index_button = array();
 			if(CRUDBooster::getCurrentMethod() == 'getIndex') {
 				if(CRUDBooster::myPrivilegeName() == "Warehouse"){
@@ -148,131 +84,21 @@
 					$this->index_button[] = ["title"=>"Export STW/STR","label"=>"Export STW/STR",'color'=>'primary',"icon"=>"fa fa-download","url"=>CRUDBooster::mainpath('export-stwr').'?'.urldecode(http_build_query(@$_GET))];
 				}
 			}
-
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Customize Table Row Color
-	        | ----------------------------------------------------------------------     
-	        | @condition = If condition. You may use field alias. E.g : [id] == 1
-	        | @color = Default is none. You can use bootstrap success,info,warning,danger,primary.        
-	        | 
-	        */
-	        $this->table_row_color = array();     	          
-
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | You may use this bellow array to add statistic at dashboard 
-	        | ---------------------------------------------------------------------- 
-	        | @label, @count, @icon, @color 
-	        |
-	        */
-	        $this->index_statistic = array();
-
-
-
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Add javascript at body 
-	        | ---------------------------------------------------------------------- 
-	        | javascript code in the variable 
-	        | $this->script_js = "function() { ... }";
-	        |
-	        */
-	        $this->script_js = NULL;
-
-
-            /*
-	        | ---------------------------------------------------------------------- 
-	        | Include HTML Code before index table 
-	        | ---------------------------------------------------------------------- 
-	        | html code to display it before index table
-	        | $this->pre_index_html = "<p>test</p>";
-	        |
-	        */
-	        $this->pre_index_html = null;
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Include HTML Code after index table 
-	        | ---------------------------------------------------------------------- 
-	        | html code to display it after index table
-	        | $this->post_index_html = "<p>test</p>";
-	        |
-	        */
-	        $this->post_index_html = null;
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Include Javascript File 
-	        | ---------------------------------------------------------------------- 
-	        | URL of your javascript each array 
-	        | $this->load_js[] = asset("myfile.js");
-	        |
-	        */
-	        $this->load_js = array();
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Add css style at body 
-	        | ---------------------------------------------------------------------- 
-	        | css code in the variable 
-	        | $this->style_css = ".style{....}";
-	        |
-	        */
-	        $this->style_css = NULL;
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Include css File 
-	        | ---------------------------------------------------------------------- 
-	        | URL of your css each array 
-	        | $this->load_css[] = asset("myfile.css");
-	        |
-	        */
-	        $this->load_css = array();
-	        
 	        
 	    }
-
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for button selected
-	    | ---------------------------------------------------------------------- 
-	    | @id_selected = the id selected
-	    | @button_name = the name of button
-	    |
-	    */
-	    public function actionButtonSelected($id_selected,$button_name) {
-	        //Your code here
-	            
-	    }
-
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate query of index result 
-	    | ---------------------------------------------------------------------- 
-	    | @query = current sql query 
-	    |
-	    */
+		
 	    public function hook_query_index(&$query) {
 	        //Your code here
-	        if(!CRUDBooster::isSuperadmin()){
+			$query->select('pullout.st_document_number',
+				'pullout.wh_from',
+				'pullout.wh_to',
+				'pullout.status',
+				'pullout.created_date')->distinct();
+
+	        if(!CRUDBooster::isSuperadmin() && !in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
 				$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 				if (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status')
-					->where('transport_types_id',1)
-					->distinct();
+					$query->where('transport_types_id',1);
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(),["Approver","Franchise Approver"])){
 					//get approval matrix
@@ -285,66 +111,47 @@
 					$approval_string = implode(",",$approval_array);
 					$storeList = array_map('intval',explode(",",$approval_string));
 	
-					$query->whereIn('pullout.stores_id', array_values((array)$storeList))
-						->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')->distinct();
+					$query->whereIn('pullout.stores_id', array_values((array)$storeList));
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Warehouse","Warehouse Online","RMA"])){
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-					->where('wh_to',$store->pos_warehouse)->distinct();
+					$query->where('wh_to',$store->pos_warehouse);
 				}
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])) {
 				    if(empty($store)){
-    					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-    					->where('pullout.channel_id',CRUDBooster::myChannel())->distinct();
+    					$query->where('pullout.channel_id',CRUDBooster::myChannel());
 				    }
 				    else{
-				        $query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-    					->where('pullout.channel_id',CRUDBooster::myChannel())
-    					->whereIn('pullout.stores_id',CRUDBooster::myStore())->distinct();
+				        $query->where('pullout.channel_id',CRUDBooster::myChannel())
+    					->whereIn('pullout.stores_id',CRUDBooster::myStore());
 				    }
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-					->whereIn('pullout.channel_id',[1,2])->distinct();
+					$query->whereIn('pullout.channel_id',[1,2]);
+				}
+				elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+					$query->whereIn('pullout.stores_id',CRUDBooster::myStore());
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Reports"){
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-					->whereIn('pullout.channel_id',[1,2,4,6,7,10,11])->distinct();
+					$query->whereIn('pullout.channel_id',[1,2,4,6,7,10,11]);
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Onl Viewer"){
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-                    	->where(function($subquery) {
-                            $subquery->where('pullout.channel_id',4)
-                            ->orWhereIn('pullout.reason_id',['203','202','R-28','R-27']);
-                        })
-                    	->distinct();
+					$query->where(function($subquery) {
+						$subquery->where('pullout.channel_id',4)
+						->orWhereIn('pullout.reason_id',['203','202','R-28','R-27']);
+					});
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Distri Ops"){
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-					->where(function($subquery) {
+					$query->where(function($subquery) {
                         $subquery->whereIn('pullout.channel_id',[6,7,10,11])
                         ->orWhereIn('pullout.reason_id',['173','R-12']);
-                    })->distinct();
-				}
-				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
-				    $query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')->distinct();
+                    });
 				}
 				else{
-					$query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')
-					->whereIn('pullout.stores_id',CRUDBooster::myStore())->distinct();
+					$query->whereIn('pullout.stores_id',CRUDBooster::myStore());
 				}
 			}
-			else{
-			    $query->select('pullout.st_document_number','pullout.wh_from','pullout.wh_to','pullout.status','pullout.created_date')->distinct();
-			}
 	    }
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate row of index table html 
-	    | ---------------------------------------------------------------------- 
-	    |
-	    */    
+		   
 	    public function hook_row_index($column_index,&$column_value) {	        
 	    	//Your code here
 			if($column_index == 6){
@@ -389,82 +196,8 @@
 			}
 
 	    }
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate data input before add data is execute
-	    | ---------------------------------------------------------------------- 
-	    | @arr
-	    |
-	    */
-	    public function hook_before_add(&$postdata) {        
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command after add public static function called 
-	    | ---------------------------------------------------------------------- 
-	    | @id = last insert id
-	    | 
-	    */
-	    public function hook_after_add($id) {        
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate data input before update data is execute
-	    | ---------------------------------------------------------------------- 
-	    | @postdata = input post data 
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_before_edit(&$postdata,$id) {        
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command after edit public static function called
-	    | ----------------------------------------------------------------------     
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_after_edit($id) {
-	        //Your code here 
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command before delete public static function called
-	    | ----------------------------------------------------------------------     
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_before_delete($id) {
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command after delete public static function called
-	    | ----------------------------------------------------------------------     
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_after_delete($id) {
-	        //Your code here
-
-	    }
 		
-		public function printPicklist($st_number)
-		{
+		public function printPicklist($st_number) {
 			$this->cbLoader();
 
 			$data = array();
@@ -516,8 +249,7 @@
 			// return $datatopdf->download('stw-picklist-'.date('YmdHis').'.pdf');
 		}
 
-		public function getDetail($st_number)
-		{
+		public function getDetail($st_number) {
 
 			if(!CRUDBooster::isRead() && $this->global_privilege == false || $this->button_detail == false) {    
 				CRUDBooster::redirect(CRUDBooster::adminPath(),trans("crudbooster.denied_access"));
@@ -589,8 +321,7 @@
 			$this->cbView("pullout.detail", $data);
 		}
 
-		public function getPrint($st_number)
-		{
+		public function getPrint($st_number) {
 
 			$this->cbLoader();
 
@@ -646,7 +377,6 @@
 
 			$this->cbView("pullout.print", $data);
 		}
-
 		public function exportSTW(Request $request)
 		{
 			$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
@@ -752,6 +482,9 @@
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2]);
+						}
+						elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+						    $stw_item->whereIn('pullout.stores_id',CRUDBooster::myStore());
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Reports"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2,4,6,7,10,11]);
@@ -933,6 +666,9 @@
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2]);
+						}
+						elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+						    $stw_item->whereIn('pullout.stores_id',CRUDBooster::myStore());
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Reports"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2,4,6,7,10,11]);
@@ -1118,6 +854,9 @@
 						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2]);
 						}
+						elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+						    $stw_item->whereIn('pullout.stores_id',CRUDBooster::myStore());
+						}
 						elseif(CRUDBooster::myPrivilegeName() == "Reports"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2,4,6,7,10,11]);
 						}
@@ -1302,6 +1041,9 @@
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2]);
+						}
+						elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+						    $stw_item->whereIn('pullout.stores_id',CRUDBooster::myStore());
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Reports"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2,4,6,7,10,11]);
@@ -1505,6 +1247,9 @@
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2]);
+						}
+						elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+						    $stw_item->whereIn('pullout.stores_id',CRUDBooster::myStore());
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Reports"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2,4,6,7,10,11]);
@@ -1721,6 +1466,9 @@
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2]);
+						}
+						elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+						    $stw_item->whereIn('pullout.stores_id',CRUDBooster::myStore());
 						}
 						elseif(CRUDBooster::myPrivilegeName() == "Reports"){
 						    $stw_item->whereIn('pullout.channel_id', [1,2,4,6,7,10,11]);

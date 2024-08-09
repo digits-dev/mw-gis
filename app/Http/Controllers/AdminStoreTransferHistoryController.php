@@ -3,18 +3,15 @@
 	use Session;
 	use DB;
 	use CRUDBooster;
-	use Illuminate\Support\Facades\Input;
-	use Illuminate\Support\Facades\File;
 	use Illuminate\Http\Request;
 	use App\ApprovalMatrix;
 	use Excel;
 	use PhpOffice\PhpSpreadsheet\Spreadsheet;
 	use PhpOffice\PhpSpreadsheet\Reader\Exception;
 	use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-	use PhpOffice\PhpSpreadsheet\IOFactory;
 	use App\PosPullHeader;
 	use App\PosPullLines;
-use Illuminate\Support\Facades\Log;
+	use Illuminate\Support\Facades\Log;
 
 	class AdminStoreTransferHistoryController extends \crocodicstudio\crudbooster\controllers\CBController {
 
@@ -53,39 +50,8 @@ use Illuminate\Support\Facades\Log;
 			$this->col[] = ["label"=>"Created By","name"=>"created_by","join"=>"cms_users,name"];
 			$this->col[] = ["label"=>"Created Date","name"=>"created_date"];
 			
-			# END COLUMNS DO NOT REMOVE THIS LINE
-
-			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
-
-			# END FORM DO NOT REMOVE THIS LINE
-
-			/* 
-	        | ---------------------------------------------------------------------- 
-	        | Sub Module
-	        | ----------------------------------------------------------------------     
-			| @label          = Label of action 
-			| @path           = Path of sub module
-			| @foreign_key 	  = foreign key of sub table/module
-			| @button_color   = Bootstrap Class (primary,success,warning,danger)
-			| @button_icon    = Font Awesome Class  
-			| @parent_columns = Sparate with comma, e.g : name,created_at
-	        | 
-	        */
-	        $this->sub_module = array();
-
-
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add More Action Button / Menu
-	        | ----------------------------------------------------------------------     
-	        | @label       = Label of action 
-	        | @url         = Target URL, you can use field alias. e.g : [id], [name], [title], etc
-	        | @icon        = Font awesome class icon. e.g : fa fa-bars
-	        | @color 	   = Default is primary. (primary, warning, succecss, info)     
-	        | @showIf 	   = If condition when action show. Use field alias. e.g : [id] == 1
-	        | 
-	        */
+			
 			$this->addaction = array();
 			if(CRUDBooster::isSuperadmin() || in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])){
 				$this->addaction[] = ['title'=>'Print','url'=>CRUDBooster::mainpath('print').'/[st_document_number]','icon'=>'fa fa-print','color'=>'info','showIf'=>"[status]=='FOR RECEIVING'"];
@@ -98,167 +64,26 @@ use Illuminate\Support\Facades\Log;
 			}
 			
 			$this->addaction[] = ['title'=>'Details','url'=>CRUDBooster::mainpath('details').'/[st_document_number]?return_url='.urlencode(\Request::fullUrl()),'icon'=>'fa fa-eye','color'=>'primary'];
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add More Button Selected
-	        | ----------------------------------------------------------------------     
-	        | @label       = Label of action 
-	        | @icon 	   = Icon from fontawesome
-	        | @name 	   = Name of button 
-	        | Then about the action, you should code at actionButtonSelected method 
-	        | 
-	        */
+	        
 	        $this->button_selected = array();
             if(CRUDBooster::myPrivilegeName() == "Online WSDM"){
 				$this->button_selected[] = ['label'=>'Print Picklist', 'icon'=>'fa fa-print', 'name'=>'print_picklist'];
 			}
-	                
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add alert message to this module at overheader
-	        | ----------------------------------------------------------------------     
-	        | @message = Text of message 
-	        | @type    = warning,success,danger,info        
-	        | 
-	        */
-	        $this->alert = array();
-	                
-
-	        
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Add more button to header button 
-	        | ----------------------------------------------------------------------     
-	        | @label = Name of button 
-	        | @url   = URL Target
-	        | @icon  = Icon from Awesome.
-	        | 
-	        */
 			$this->index_button = array();
 			if(CRUDBooster::getCurrentMethod() == 'getIndex'){
 				$this->index_button[] = ["title"=>"Export STS with Serial","label"=>"Export STS with Serial",'color'=>'info',"icon"=>"fa fa-download","url"=>CRUDBooster::mainpath('export-sts-serialized').'?'.urldecode(http_build_query(@$_GET))];
 				$this->index_button[] = ["title"=>"Export STS","label"=>"Export STS",'color'=>'primary',"icon"=>"fa fa-download","url"=>CRUDBooster::mainpath('export-sts').'?'.urldecode(http_build_query(@$_GET))];
 			}
-
-
-	        /* 
-	        | ---------------------------------------------------------------------- 
-	        | Customize Table Row Color
-	        | ----------------------------------------------------------------------     
-	        | @condition = If condition. You may use field alias. E.g : [id] == 1
-	        | @color = Default is none. You can use bootstrap success,info,warning,danger,primary.        
-	        | 
-	        */
-	        $this->table_row_color = array();     	          
-
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | You may use this bellow array to add statistic at dashboard 
-	        | ---------------------------------------------------------------------- 
-	        | @label, @count, @icon, @color 
-	        |
-	        */
-	        $this->index_statistic = array();
-
-
-
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Add javascript at body 
-	        | ---------------------------------------------------------------------- 
-	        | javascript code in the variable 
-	        | $this->script_js = "function() { ... }";
-	        |
-	        */
-	        $this->script_js = NULL;
-
-
-            /*
-	        | ---------------------------------------------------------------------- 
-	        | Include HTML Code before index table 
-	        | ---------------------------------------------------------------------- 
-	        | html code to display it before index table
-	        | $this->pre_index_html = "<p>test</p>";
-	        |
-	        */
-	        $this->pre_index_html = null;
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Include HTML Code after index table 
-	        | ---------------------------------------------------------------------- 
-	        | html code to display it after index table
-	        | $this->post_index_html = "<p>test</p>";
-	        |
-	        */
-	        $this->post_index_html = null;
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Include Javascript File 
-	        | ---------------------------------------------------------------------- 
-	        | URL of your javascript each array 
-	        | $this->load_js[] = asset("myfile.js");
-	        |
-	        */
-	        $this->load_js = array();
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Add css style at body 
-	        | ---------------------------------------------------------------------- 
-	        | css code in the variable 
-	        | $this->style_css = ".style{....}";
-	        |
-	        */
-	        $this->style_css = NULL;
-	        
-	        
-	        
-	        /*
-	        | ---------------------------------------------------------------------- 
-	        | Include css File 
-	        | ---------------------------------------------------------------------- 
-	        | URL of your css each array 
-	        | $this->load_css[] = asset("myfile.css");
-	        |
-	        */
-	        $this->load_css = array();
-	        
 	        
 	    }
-
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for button selected
-	    | ---------------------------------------------------------------------- 
-	    | @id_selected = the id selected
-	    | @button_name = the name of button
-	    |
-	    */
-	    public function actionButtonSelected($id_selected,$button_name) {
-	        //Your code here
-	            
-	    }
-
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate query of index result 
-	    | ---------------------------------------------------------------------- 
-	    | @query = current sql query 
-	    |
-	    */
+		
 	    public function hook_query_index(&$query) {
 			//Your code here
+			$query->select('pos_pull_headers.st_document_number',
+						'pos_pull_headers.wh_from',
+						'pos_pull_headers.wh_to',
+						'pos_pull_headers.status');
+
 			if(!CRUDBooster::isSuperadmin()){
 				$store = DB::table('stores')->whereIn('id', CRUDBooster::myStore())->first();
 				
@@ -273,23 +98,19 @@ use Illuminate\Support\Facades\Log;
 					$approval_string = implode(",",$approval_array);
 					$storeList = array_map('intval',explode(",",$approval_string));
 
-					//compare the store_list of approver to purchase header store_id
-					$query->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList))
-						->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status');
+					$query->whereIn('pos_pull_headers.stores_id', array_values((array)$storeList));
 
 				}
 				elseif (in_array(CRUDBooster::myPrivilegeName(),["LOG TM","LOG TL"])) {
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')->where('pos_pull_headers.transport_types_id',1);
+					$query->where('pos_pull_headers.transport_types_id',1);
 				}
 				
 				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Online Ops","Retail Ops","Franchise Ops","Online Viewer"])) {
 				    if(empty($store)){
-    					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
-    					->where('pos_pull_headers.channel_id', CRUDBooster::myChannel());  
+    					$query->where('pos_pull_headers.channel_id', CRUDBooster::myChannel());  
 				    }
 				    else{
-				        $query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
-    					->where('pos_pull_headers.channel_id', CRUDBooster::myChannel())
+				        $query->where('pos_pull_headers.channel_id', CRUDBooster::myChannel())
     					->where(function($subquery) use ($store) {
                             $subquery->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())->orWhere('pos_pull_headers.wh_to',$store->pos_warehouse);
                         });
@@ -297,50 +118,44 @@ use Illuminate\Support\Facades\Log;
 				}
 				
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
-					->whereIn('pos_pull_headers.channel_id', [1,2]);   
+					$query->whereIn('pos_pull_headers.channel_id', [1,2]);   
 				}
 				
 				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
-					->whereIn('pos_pull_headers.channel_id', [1,2,4]);   
+					$query->whereIn('pos_pull_headers.channel_id', [1,2,4]);   
 				}
 				
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Onl Viewer") {
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
-					->whereIn('pos_pull_headers.channel_id', [1,4]);   
+					
+					$query->whereIn('pos_pull_headers.channel_id', [1,4]);   
+				}
+
+				elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer"){
+					
+					$query->where(function($subquery) use ($store) {
+						$subquery->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())
+							->orWhere('pos_pull_headers.wh_to',$store->pos_warehouse);
+					});;  
 				}
 
 				elseif(CRUDBooster::myPrivilegeName() == "Online WSDM") {
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status')
-					->whereIn('pos_pull_headers.stores_id', CRUDBooster::myStore());   
+					$query->whereIn('pos_pull_headers.stores_id', CRUDBooster::myStore());   
 				}
 				
-				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch"])){
-				    $query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status');
-				}elseif(in_array(CRUDBooster::myPrivilegeId(), [28])){
-				    $query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status');
+				elseif(in_array(CRUDBooster::myPrivilegeName(), ["Audit","Inventory Control","Merch","Operation Manager"])){
+				    
 				}
 				else{
-					$query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status','pos_pull_headers.created_date')
-					->where(function($subquery) use ($store) {
-                        $subquery->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())->orWhere('pos_pull_headers.wh_to',$store->pos_warehouse);
+					$query->where(function($subquery) use ($store) {
+                        $subquery->whereIn('pos_pull_headers.stores_id',CRUDBooster::myStore())
+							->orWhere('pos_pull_headers.wh_to',$store->pos_warehouse);
                     });
 				}
 				
 			}
-			else{
-			    $query->select('pos_pull_headers.st_document_number','pos_pull_headers.wh_from','pos_pull_headers.wh_to','pos_pull_headers.status');
-			}
 	            
 	    }
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate row of index table html 
-	    | ---------------------------------------------------------------------- 
-	    |
-	    */    
+		   
 	    public function hook_row_index($column_index,&$column_value) {	        
 	    	//Your code here
 			if($column_index == 5){
@@ -378,79 +193,7 @@ use Illuminate\Support\Facades\Log;
 				}
 			}
 	    }
-
-	    /*
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate data input before add data is execute
-	    | ---------------------------------------------------------------------- 
-	    | @arr
-	    |
-	    */
-	    public function hook_before_add(&$postdata) {        
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command after add public static function called 
-	    | ---------------------------------------------------------------------- 
-	    | @id = last insert id
-	    | 
-	    */
-	    public function hook_after_add($id) {        
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for manipulate data input before update data is execute
-	    | ---------------------------------------------------------------------- 
-	    | @postdata = input post data 
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_before_edit(&$postdata,$id) {        
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command after edit public static function called
-	    | ----------------------------------------------------------------------     
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_after_edit($id) {
-	        //Your code here 
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command before delete public static function called
-	    | ----------------------------------------------------------------------     
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_before_delete($id) {
-	        //Your code here
-
-	    }
-
-	    /* 
-	    | ---------------------------------------------------------------------- 
-	    | Hook for execute command after delete public static function called
-	    | ----------------------------------------------------------------------     
-	    | @id       = current id 
-	    | 
-	    */
-	    public function hook_after_delete($id) {
-	        //Your code here
-
-	    }
+		
 
 		public function printPicklist($st_number)
 		{
@@ -567,7 +310,7 @@ use Illuminate\Support\Facades\Log;
 			$store = DB::table('stores')->where('id', CRUDBooster::myStore())->first();
 			ini_set('memory_limit', '-1');
 
-			$sts_item = DB::table('pos_pull')->select(
+			$sts_item = DB::table('pos_pull_headers')->select(
 				'pos_pull_headers.st_document_number as st_number',
 				'pos_pull_headers.received_st_number',
 				'reason.pullout_reason',
@@ -580,10 +323,10 @@ use Illuminate\Support\Facades\Log;
 				'transport_types.transport_type as transport_by',
 				'pos_pull_headers.scheduled_at',
 				'scheduled_log.name as scheduled_by',
-				'pos_pull_headers.created_at as created_date',
+				'pos_pull_headers.created_date as created_date',
 				'pos_pull_headers.received_st_date as received_date',
 				'pos_pull_headers.status')
-			->leftjoin('pos_pull_headers', 'pos_pull.pos_pull_header_id','pos_pull_headers.id')
+			->leftjoin('pos_pull', 'pos_pull_headers.id','=', 'pos_pull.pos_pull_header_id')
 			->leftJoin('items', 'pos_pull.item_code', '=', 'items.digits_code')
 			->leftJoin('transport_types', 'pos_pull_headers.transport_types_id', '=', 'transport_types.id')
 			->leftJoin('cms_users as scheduled_log', 'pos_pull_headers.scheduled_by', '=', 'scheduled_log.id')
@@ -591,9 +334,9 @@ use Illuminate\Support\Facades\Log;
 			->leftJoin('stores as stores', 'pos_pull_headers.stores_id', '=', 'stores.id')
 			->leftJoin('stores as stores1', 'pos_pull_headers.stores_id_destination', '=', 'stores1.id');
 			
-			if(!$request->filter_column) {
-				$filter_column = $request->filter_column;
-				$sts_item->where(function($w) use ($filter_column,$fc) {
+			if(!empty(\Request::get('filter_column'))) {
+				$filter_column = \Request::get('filter_column');
+				$sts_item->where(function($w) use ($filter_column) {
 					if(is_array($filter_column)){
 						foreach((array)$filter_column as $key=>$fc) {
 
@@ -684,6 +427,12 @@ use Illuminate\Support\Facades\Log;
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
 					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2]);
 				}
+				elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer") {
+					$sts_item->where(function($subquery) use ($store) {
+						$subquery->where('stores.bea_so_store_name',$store->bea_so_store_name)
+						->orWhere('stores1.bea_so_store_name',$store->bea_so_store_name);
+					});
+				}
 				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
 					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2,4]);
 				}
@@ -698,7 +447,7 @@ use Illuminate\Support\Facades\Log;
 			$sts_item->orderBy('pos_pull_headers.st_document_number', 'asc');
 			$stsItems = $sts_item->get();
 			
-			$items_array[] = array('ST #',
+			$headings = ['ST #',
 				'RECEIVED ST #',
 				'REASON',
 				'DIGITS CODE',
@@ -711,47 +460,48 @@ use Illuminate\Support\Facades\Log;
 				'SCHEDULED DATE/BY',
 				'CREATED DATE',
 				'RECEIVED DATE',
-				'STATUS');
+				'STATUS'
+			];
 
 			foreach($stsItems as $item) {
-				$items_array[] = array(
-					'ST #' => $item->st_number,
-					'RECEIVED ST #' => $item->received_st_number,
-					'REASON' => $item->pullout_reason,
-					'DIGITS CODE' => $item->digits_code,	
-					'UPC CODE' => '="'.$item->upc_code.'"',			
-					'ITEM DESCRIPTION' => $item->item_description,	
-					'SOURCE' => $item->source,
-					'DESTINATION' => $item->destination,
-					'QTY' => $item->sts_quantity,
-					'TRANSPORT BY' => $item->transport_by,
-					'SCHEDULED DATE/BY' => (!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
-					'CREATED DATE' => $item->created_date,
-					'RECEIVED DATE' => $item->received_date,
-					'STATUS' => $item->status
-				);
+				$items_array[] = [
+					$item->st_number,
+					$item->received_st_number,
+					$item->pullout_reason,
+					$item->digits_code,	
+					'="'.$item->upc_code.'"',			
+					$item->item_description,	
+					$item->source,
+					$item->destination,
+					$item->sts_quantity,
+					$item->transport_by,
+					(!empty($item->scheduled_at)) ? $item->scheduled_at.' - '.$item->scheduled_by : '',
+					$item->created_date,
+					$item->received_date,
+					$item->status
+				];
 			}
 
 			ini_set('max_execution_time', 0);
 			$filename = 'Export STS - '.date("Ymd H:i:sa");
-			self::exportExcel($items_array, $filename);
-			// Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
-			// 	$excel->sheet('sts', function($sheet) use ($headings, $items_array){
-			// 		// Set auto size for sheet
-			// 		$sheet->setAutoSIZE(true);
-			// 		$sheet->setColumnFormat(array(
-			// 			'D' => '@',
-			// 		));
+			// self::exportExcel($items_array, $filename);
+			Excel::create('Export STS - '.date("Ymd H:i:sa"), function($excel) use ($headings, $items_array){
+				$excel->sheet('sts', function($sheet) use ($headings, $items_array){
+					// Set auto size for sheet
+					$sheet->setAutoSIZE(true);
+					$sheet->setColumnFormat(array(
+						'D' => '@',
+					));
 					
-			// 		$sheet->fromArray($items_array, null, 'A1', false, false);
-			// 		$sheet->prependRow(1, $headings);
-			// 		$sheet->row(1, function($row) {
-			// 			$row->setBackground('#FFFF00');
-			// 			$row->setAlignment('center');
-			// 		});
+					$sheet->fromArray($items_array, null, 'A1', false, false);
+					$sheet->prependRow(1, $headings);
+					$sheet->row(1, function($row) {
+						$row->setBackground('#FFFF00');
+						$row->setAlignment('center');
+					});
 					
-			// 	});
-			// })->export('xlsx');
+				});
+			})->export('xlsx');
 		}
 
 		public function exportSTSSerialized(Request $request)
@@ -785,9 +535,9 @@ use Illuminate\Support\Facades\Log;
 			->leftJoin('stores as stores', 'pos_pull_headers.stores_id', '=', 'stores.id')
 			->leftJoin('stores as stores1', 'pos_pull_headers.stores_id_destination', '=', 'stores1.id');
 			
-			if(!$request->filter_column) {
-				$filter_column = $request->filter_column;
-				$sts_item->where(function($w) use ($filter_column,$fc) {
+			if(!\Request::get('filter_column')) {
+				$filter_column = \Request::get('filter_column');
+				$sts_item->where(function($w) use ($filter_column) {
 					if(is_array($filter_column)){
 						foreach((array)$filter_column as $key=>$fc) {
 
@@ -877,6 +627,12 @@ use Illuminate\Support\Facades\Log;
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Rtl Fra Ops") {
 					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2]);
+				}
+				elseif(CRUDBooster::myPrivilegeName() == "Franchise Viewer") {
+					$sts_item->where(function($subquery) use ($store) {
+						$subquery->where('stores.bea_so_store_name',$store->bea_so_store_name)
+						->orWhere('stores1.bea_so_store_name',$store->bea_so_store_name);
+					});
 				}
 				elseif(CRUDBooster::myPrivilegeName() == "Reports") {
 					$sts_item->whereIn('pos_pull_headers.channel_id', [1,2,4]);
