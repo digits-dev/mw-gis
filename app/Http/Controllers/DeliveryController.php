@@ -89,19 +89,23 @@ class DeliveryController extends Controller
         //get digitswarehouse code
 
         $deliveriesQty = DB::table('ebs_pull')
+            ->leftJoin('items','ebs_pull.ordered_item','=','items.digits_code')
             ->where('ebs_pull.status','RECEIVED') //change the status to RECEIVED (ready for push)
             ->whereBetween('ebs_pull.received_at',[$datefrom, $dateto])
             ->select(
                 'ebs_pull.dr_number',
-                DB::raw('SUM(ebs_pull.shipped_quantity) as total_qty')
+                DB::raw('SUM(ebs_pull.shipped_quantity) as total_qty'),
+                DB::raw('SUM(ebs_pull.shipped_quantity*items.current_srp) as total_amount')
             )->take(100)
             ->groupBy('ebs_pull.dr_number')
             ->get()->toArray();
         
         $arraySumQty = [];
+        $arraySumAmount = [];
        
         foreach ($deliveriesQty as $item) {
             $arraySumQty[$item->dr_number] = $item->total_qty;
+            $arraySumAmount[$item->dr_number] = $item->total_amount;
         }
         
         $deliveryItems = DB::table('ebs_pull')
@@ -118,7 +122,8 @@ class DeliveryController extends Controller
                 'serials.serial_number',
                 'items.digits_code',
                 'items.item_description',
-                'items.current_srp',                
+                'items.current_srp', 
+                'items.has_serial',               
                 // 'stores.warehouse_code',
                 'stores.pos_warehouse_name'
             )->take(100)->get();
@@ -127,10 +132,11 @@ class DeliveryController extends Controller
             if (!isset($deliveries[$item->dr_number])) {
                 $deliveries[$item->dr_number] = [
                     'reference_code' => $item->dr_number,
-                    'transaction_date' => $item->data_pull_date,
+                    'transaction_date' => Carbon::parse($item->received_at)->format('Y-m-d'),
                     'from_warehouse' => 'DIGITS WAREHOUSE', //digitswarehouse
                     'destination_store' => $item->pos_warehouse_name,
                     'total_qty' => $arraySumQty[$item->dr_number],
+                    'total_amount' => $arraySumAmount[$item->dr_number],
                     'memo' => $item->customer_po,
                     'created_date' => $item->data_pull_date,
                     'delivery_lines' => []
@@ -144,7 +150,10 @@ class DeliveryController extends Controller
                 'price' => $item->current_srp,
                 'uom' => 'PCS',
                 'qty' => (!is_null($item->serial_number)) ? 1 : $item->shipped_quantity,
-                'serial_number' => $item->serial_number
+                'has_serial' => $item->has_serial,
+                'serial_number' => $item->serial_number,
+                'created_date' => $item->data_pull_date,
+                'transaction_date' => Carbon::parse($item->received_at)->format('Y-m-d')
             ];
         }
         
