@@ -209,7 +209,7 @@ table.table.table-bordered th {
                                     </tr>
                                 @else
                                     <tr class="tableInfo">
-                                        <td colspan="3" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td colspan="2" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
                                         <td align="center">{{$stQuantity}} </td>
                                         {{-- <td colspan="1"></td> --}}
                                     </tr>

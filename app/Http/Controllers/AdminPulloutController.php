@@ -171,8 +171,8 @@
 				}
 			}
 			if(CRUDBooster::getCurrentMethod() == 'getIndex' && in_array(CRUDBooster::myPrivilegeId(),[27])){
+				$this->index_button[] = ['label'=>'Create STW','url'=>CRUDBooster::mainpath().'/stw-gis/create','icon'=>'fa fa-plus','color'=>'success'];
 				$this->index_button[] = ['label'=>'Create ST RMA','url'=>CRUDBooster::mainpath().'/rma-gis/create','icon'=>'fa fa-plus','color'=>'success'];
-				
 			}
 
 	        /* 
@@ -1743,6 +1743,7 @@
 				//get sublocation
 				$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 				->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
+			
 				//get sub location in transit
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
 				->where('location_id',$location->id)->where('description','IN TRANSIT')->first();
@@ -2234,5 +2235,248 @@
             else{
                 CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! No pullout has been created','danger')->send();
             }
+		}
+
+		//STW GIS MW
+		public function getSTWGis()
+		{
+			$this->cbLoader();
+
+			$data = array();
+			
+			$data['page_title'] = 'Create STW GIS';
+
+			if(CRUDBooster::isSuperadmin()){
+				$data['transfer_from'] = DB::table('stores')
+				->select('id','pos_warehouse','pos_warehouse_transit','pos_warehouse_name','doo_subinventory as subinventory')->get();
+			}
+			else{
+				$data['transfer_from'] = DB::table('stores')
+				->select('id','pos_warehouse','pos_warehouse_transit','pos_warehouse_name','doo_subinventory as subinventory')
+				->whereIn('id',CRUDBooster::myStore())->get();
+			}
+			
+
+			$data['transfer_to'] = DB::table('stores')
+				->select('pos_warehouse','pos_warehouse_name')
+				->whereNotIn('id',CRUDBooster::myStore())
+				->where('pos_warehouse','DIGITSWAREHOUSE')
+				->where('status','ACTIVE')
+				->get();
+
+			$data['transport_types'] = DB::table('transport_types')
+				->select('id','transport_type')
+				->where('status','ACTIVE')
+				->get();
+			
+			if(CRUDBooster::myChannel() == 1){ //retail
+				$data['reasons'] = DB::table('reason')
+				->select('bea_mo_reason as bea_reason','pullout_reason')
+				->where('transaction_type_id',1) //STW
+				->where('status','ACTIVE')
+				->get();
+			}
+			else{
+				$data['reasons'] = DB::table('reason')
+				->select('bea_so_reason as bea_reason','pullout_reason')
+				->where('transaction_type_id',1) //STW
+				->where('status','ACTIVE')
+				->get();
+			}
+
+			$data['transfer_org'] = 224;
+			
+			if(in_array(CRUDBooster::myChannel(),[6,7,10,11])){ //con,out,crp,dlr
+			    $this->cbView("pullout.stw-distri-scan", $data);
+			}
+			else{
+			    $this->cbView("pullout.stw-gis-scan", $data);
+			}
+			
+		}
+
+		//STW GIS SAVE
+		public function saveCreateStwGisRma(Request $request)
+		{
+			$validator = \Validator::make($request->all(), [
+				'transport_type' => 'required',
+				'digits_code' => 'required',
+				'transfer_from' => 'required',
+				'transfer_to' => 'required',
+				'pullout_date' => 'required',
+				'reason' => 'required',
+				// 'problems' => 'required',
+			],
+			[
+				'transport_type.required' => 'You have to choose transport by.',
+				'digits_code.required' => 'You have to add pullout items.',
+				'transfer_to.required' => 'You have to choose pullout to store/warehouse.',
+				'pullout_date.required' => 'You have to set date for pullout.',
+				'reason.required' => 'You have to choose pullout reason.',
+				// 'problems.required' => 'You have to choose item problem.',
+			]);
+	
+			if ($validator->fails()) {
+				return redirect()->back()
+				->withErrors($validator)
+				->withInput();
+			}
+		
+			$mw_location = DB::table('stores')->where('id',$request->stores_id)->first();
+			//get location
+			$location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
+			->where('location_name',$mw_location->bea_so_store_name)->first();
+
+			//get sublocation
+			$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+			->where('location_id',$location->id)->where('description','STOCK ROOM')->first();
+	
+			foreach ($request->digits_code as $key => $val) {
+				$isQtyExceed = DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $val,
+					'inventory_capsules.locations_id' => $location->id
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$sublocation->id)
+				->where('inventory_capsule_lines.qty','<',str_replace(',', '',$request->st_quantity[$key]))
+				->exists();
+				if($isQtyExceed){
+					CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! Quantity must be equal or less than in GIS Inventory!','danger')->send();
+				}
+			}
+			
+			$stDetails = array();
+			$posItemDetails = array();
+			$record = false;
+			
+			$code_counter = CodeCounter::where('id', 1)->value('pullout_refcode');
+			$st_number = 'REF-'.str_pad($code_counter, 7, '0', STR_PAD_LEFT);
+	
+			if(empty($st_number)){
+				//back to old form
+				CRUDBooster::redirect(CRUDBooster::adminpath('store_pullout'),'Failed! No pullout has been created.','danger')->send();
+			}
+	
+			//save ST
+			foreach ($request->digits_code as $key_item => $value_item) {
+				$serial = $value_item.'_serial_number';
+				$item_problems = $value_item.'problems';
+				$item_serials = array();
+				$st_qty = str_replace(',', '',$request->st_quantity[$key_item]); 
+
+				$stDetails = [
+					'item_code' => $value_item,
+					'item_description' => $request->item_description[$key_item],
+					'quantity' => $request->st_quantity[$key_item],
+					'wh_from' => $request->transfer_from,
+					'wh_to' => $request->transfer_to,
+					'stores_id' => (int)(implode("",CRUDBooster::myStore())),
+					'channel_id' => CRUDBooster::myChannel(),
+					'memo' => $request->memo,
+					'pullout_date' => $request->pullout_date,
+					'reason_id' => $request->reason,
+					// 'problems' => implode(",",$request->$item_problems),
+					'problem_detail' => $request->problem_detail[$key_item],
+					'transport_types_id' => $request->transport_type,
+					'hand_carrier' => $request->hand_carrier,
+					'transaction_type' => 'STW',
+					'st_document_number' => $st_number,
+					'sor_number' => NULL, 
+					'st_status_id' => 2,
+					'has_serial' => 1,
+					'status' => 'PENDING', 
+					'step' => 2,
+					'created_date' => date('Y-m-d'),
+					'created_at' => date('Y-m-d H:i:s'),
+					'request_type' => 'Gashapon'
+				];
+
+				//UPDATE IN GIS INVENTORY LINES
+				DB::connection('gis')->table('inventory_capsules')
+				->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+				->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+				->where([
+					'items.digits_code' => $value_item,
+					'inventory_capsules.locations_id' => $location->id
+				])
+				->where('inventory_capsule_lines.sub_locations_id',$sublocation->id)
+				->update([
+					'qty' => DB::raw("qty - $st_qty"),
+					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
+				]);
+
+				//ADD GIS MOVEMENT HISTORY
+				//get item code
+				$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
+				$item_code = DB::connection('gis')->table('items')->where('digits_code',$value_item)->first();
+				$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+				->where('description','PULLOUT')->first();
+				DB::connection('gis')->table('history_capsules')->insert([
+					'reference_number' => $st_number,
+					'item_code' => $item_code->digits_code2,
+					'capsule_action_types_id' => $capsuleAction->id,
+					'locations_id' => $location->id,
+					'from_sub_locations_id' => $sublocation->id,
+					'qty' => -1 * abs($st_qty),
+					'created_at' => date('Y-m-d H:i:s'),
+					'created_by' => $gis_mw_name->id
+				]);
+				
+				$pullout_id = Pullout::insertGetId($stDetails);
+				$record = true;
+				
+			}
+
+			DB::table('code_counter')->where('id', 1)->increment('pullout_refcode');
+
+			if($record && !empty($st_number)){
+			    CRUDBooster::insertLog(trans("crudbooster.str_created", ['ref_number' =>$st_number]));
+                CRUDBooster::redirect(CRUDBooster::mainpath('print').'/'.$st_number,'','')->send();
+			}
+            else{
+                CRUDBooster::redirect(CRUDBooster::mainpath(),'Failed! No pullout has been created','danger')->send();
+            }
+		}
+
+		//STW GIS SCAN
+		public function scanStwGisMwItemSearch(Request $request){
+			$data = array();
+			$data['status_no'] = 0;
+			$data['message'] ='No item found!';
+			$mw_location = DB::table('stores')->where('id',(int)(implode("",CRUDBooster::myStore())))->first();
+			//get location
+			$location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
+			->where('location_name',$mw_location->bea_so_store_name)->first();
+	
+			//get sublocation
+			$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+			->where('location_id',$location->id)->where('description','STOCK ROOM')->first();
+	
+			$inventory_gis = DB::connection('gis')->table('inventory_capsules')
+			->leftjoin('inventory_capsule_lines','inventory_capsules.id','inventory_capsule_lines.inventory_capsules_id')
+			->leftjoin('items','inventory_capsules.item_code','items.digits_code2')
+			->where([
+				'items.digits_code' => $request->item_code,
+				'inventory_capsules.locations_id' => $location->id
+			])
+			->where('inventory_capsule_lines.sub_locations_id',$sublocation->id)
+			->first();
+			if($inventory_gis && $inventory_gis->qty >= 0) {
+				$data['status_no'] = 1;
+				$data['message'] ='Item found!';
+				$return_data['digits_code'] = $inventory_gis->digits_code;
+				$return_data['item_description'] = $inventory_gis->item_description;
+				$return_data['location'] = $location->location_name;
+				$return_data['location_id_from'] = $location->id;
+				$return_data['sub_location_id_from'] = $sublocation->id;
+				$return_data['orig_qty'] = $inventory_gis->qty;
+				$data['items'] = $return_data;
+			}
+		
+			echo json_encode($data);
+			exit;
+		   
 		}
 	}

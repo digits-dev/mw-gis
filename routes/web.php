@@ -62,6 +62,15 @@ Route::group(['middleware' => ['web'], 'prefix' => config('crudbooster.ADMIN_PAT
         Route::post('release_inbound_trip_ticket','AdminTripTicketsController@saveReleaseTripTicket')->name('saveReleaseTripTicket');
     });
 
+    
+});
+
+Route::group(['middleware' => ['web']], function() {
+    //Update Password
+    Route::post('change-password', 'AdminCmsUsersController@postUpdatePassword')->name('update_password');
+    Route::post('check-password', 'AdminCmsUsersController@checkPassword')->name('check-current-password');
+    Route::post('check-waive', 'AdminCmsUsersController@checkWaive')->name('check-waive-count');
+    Route::get('show-change-pass', 'AdminCmsUsersController@showChangePassword')->name('change-password');
 });
 
 Route::get('/admin/get_pending_dr/{store_id}','TripTicketController@getPendingDrByStore');
@@ -238,6 +247,10 @@ Route::get('/admin/store_pullout/void-st/{st_number}','AdminPulloutController@vo
 Route::get('/admin/store_pullout/received-st/{st_number}','AdminPulloutReceivingController@createReceivedST')->name('pullout.createReceivedST');
 Route::get('/admin/store_pullout/create-st','AdminPulloutReceivingController@createST')->name('pullout.createST');
 
+//STW GIS pullout
+Route::get('/admin/store_pullout/stw-gis/create','AdminPulloutController@getSTWGis')->name('pullout.stw');
+Route::post('/admin/store_pullout_scan_gis_mw_items','AdminPulloutController@scanStwGisMwItemSearch')->name('scanStwGisMwPulloutItem');
+Route::post('/admin/stw_gis_mw_creation','AdminPulloutController@saveCreateStwGisRma')->name('saveCreateStwGisMw');
 // Route::get('/admin/pullout_transactions/details/{st_number}','AdminPulloutTransactionsController@getDetail')->name('pullout-transactions.detail');
 
 //Pullout Online

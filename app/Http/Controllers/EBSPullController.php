@@ -2491,7 +2491,7 @@ class EBSPullController extends Controller
     public function getReceivedSORGisMwTransactions()
     {
         $pullouts = DB::table('pullout')->where('status','FOR RECEIVING')
-            ->where('transaction_type','RMA')
+            ->whereIn('transaction_type',['RMA','STW'])
             ->whereNotNull('request_type')
     	    ->distinct('st_document_number')->get();
     

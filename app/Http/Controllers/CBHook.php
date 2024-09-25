@@ -6,7 +6,8 @@ use DB;
 use Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
-
+use Carbon\Carbon;
+use CRUDbooster;
 class CBHook extends Controller {
 
 	/*
@@ -53,6 +54,20 @@ class CBHook extends Controller {
 			}
 			$requestorStoreList = '(' . $users->stores_id . ')';
 			Session::put('admin_requestor_store', $requestorStoreList);
+
+			if ($users->last_password_updated) {
+				// Compare the password updated date with the current date
+				$passwordLastUpdated = Carbon::parse($users->last_password_updated);
+		
+				if ($passwordLastUpdated->diffInMonths(Carbon::now()) > 3) {
+					// Password is older than 3 months
+					Session::put('password_is_old', $users->last_password_updated);
+				}else{
+					Session::put('password_is_old', '');
+				}
+			}
+			Session::put('admin_password', $users->password);
         }
+
 	}
 }

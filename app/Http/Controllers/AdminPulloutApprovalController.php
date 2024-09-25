@@ -53,7 +53,7 @@ use App\StoreName;
 		
 	    public function hook_query_index(&$query) {
 	        //Your code here
-	        if(CRUDBooster::myPrivilegeName() == "Approver" || CRUDBooster::myPrivilegeName() == "Franchise Approver"){
+			if(in_array(CRUDBooster::myPrivilegeId(), [5,28])){
 				//get approval matrix
 				$approvalMatrix = ApprovalMatrix::where('approval_matrix.cms_users_id', CRUDBooster::myId())->get();
 				
@@ -154,11 +154,9 @@ use App\StoreName;
 			$items = Pullout::with(['item','itemUpc','serial'])->getItemsForApproval($st_number)->get();
 			$data['stQuantity'] =  Pullout::getItemQty($st_number);
 			$item_data = [];
+
 			foreach ($items as $key => $value) {
-				$item_detail = $value->itemUpc;
-				if(!$value->request_type){
-					$item_detail = $value->item;
-				}
+				
 				
 				$serial_data = array();
 				foreach ($value->serial ?? [] as $serial) {
@@ -490,11 +488,14 @@ use App\StoreName;
 			$data['transfer_from'] = StoreName::find($stDetails[0]->stores_id);
 			$data['transfer_to'] = StoreName::getStoreByName($stDetails[0]->wh_to)->first();
 
-			$items = Pullout::with(['item','serial'])->getItemsForApproval($st_number)->get();
+			$items = Pullout::with(['item','itemUpc','serial'])->getItemsForApproval($st_number)->get();
 			$data['stQuantity'] = Pullout::getItemQty($st_number);
 
 			foreach ($items as $key => $value) {
-
+				$item_detail = $value->itemUpc;
+				if(!$value->request_type){
+					$item_detail = $value->item;
+				}
 				$serial_data = array();
 				foreach ($value->serial ?? [] as $serial) {
 					array_push($serial_data, $serial->serial_number);
@@ -504,7 +505,7 @@ use App\StoreName;
 					'digits_code' => $value->item_code,
 					'upc_code' => $value->item->upc_code,
 					'brand' => $value->item->brand,
-					'item_description' => $value->item != NULL ? $value->item->item_description : $value->item_description,
+					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
 					'price' => $value->item->store_cost,
 					'problems' => $value->problems.' : '.$value->problem_detail,
 					'st_quantity' => $value->quantity,
