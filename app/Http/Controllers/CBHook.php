@@ -5,6 +5,7 @@ use App\ApprovalMatrix;
 use DB;
 use Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Carbon\Carbon;
 use CRUDbooster;
@@ -55,18 +56,17 @@ class CBHook extends Controller {
 			$requestorStoreList = '(' . $users->stores_id . ')';
 			Session::put('admin_requestor_store', $requestorStoreList);
 
-			if ($users->last_password_updated) {
-				// Compare the password updated date with the current date
-				$passwordLastUpdated = Carbon::parse($users->last_password_updated);
-		
-				if ($passwordLastUpdated->diffInMonths(Carbon::now()) > 3) {
-					// Password is older than 3 months
-					Session::put('password_is_old', $users->last_password_updated);
-				}else{
-					Session::put('password_is_old', '');
-				}
+			$today = Carbon::now()->format('Y-m-d');
+			$lastChangePass = Carbon::parse($users->last_password_updated);
+			$needsPasswordChange = Hash::check('qwerty', $users->password) || $lastChangePass->diffInMonths($today) >= 3;
+			$defaultPass = Hash::check('qwerty', $users->password);
+
+			if($needsPasswordChange){
+				Log::debug("message: {$needsPasswordChange}");
+				Session::put('check-user',true);
+				Session::put('admin-password',$users->password);
+				return redirect()->route('show-change-force-password')->send();
 			}
-			Session::put('admin_password', $users->password);
         }
 
 	}

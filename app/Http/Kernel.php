@@ -61,5 +61,6 @@ class Kernel extends HttpKernel
         'preventbackhistory' => \App\Http\Middleware\PreventBackHistory::class,
         'checkAccessTime' => \App\Http\Middleware\CheckAccessTime::class,
         'authapi' => \App\Http\Middleware\ApiAuth::class,
+        'check.user' => \App\Http\Middleware\CheckUserForceChangePassword::class,
     ];
 }

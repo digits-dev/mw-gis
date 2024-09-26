@@ -64,7 +64,7 @@
                                 <a href="{{ route('AdminCmsUsersControllerGetProfile') }}?m=0" class="btn btn-default btn-flat"><i class='fa fa-user'></i> {{trans("crudbooster.label_button_profile")}}</a>
                             </div>
                             <div class="pull-{{ trans('crudbooster.left') }}">
-                                <a href="{{ route('change-password') }}?m=0" class="btn btn-default btn-flat"><i class='fa fa-key'></i></a>
+                                <a title='Change password' href="{{ route('change-password') }}?m=0" class="btn btn-warning btn-flat"><i class='fa fa-key'></i></a>
                             </div>
                             <div class="pull-{{ trans('crudbooster.right') }}">
                                 <a title='Lock Screen' href="{{ route('getLockScreen') }}" class='btn btn-default btn-flat'><i class='fa fa-lock'></i></a> 
