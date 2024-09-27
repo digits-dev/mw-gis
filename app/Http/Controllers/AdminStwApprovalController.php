@@ -418,6 +418,15 @@ use App\StoreName;
 							'qty' => DB::raw("qty + $item->quantity"),
 							'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 						]);
+
+						//UPDATE IN MW RESERVE QTY
+						DB::table('items')
+						->where([
+							'upc_code' => $item->item_code,
+						])
+						->update([
+							'reserve_qty' => DB::raw("reserve_qty + $item->quantity")
+						]);
 						//ADD GIS MOVEMENT HISTORY
 						//get item code
 						$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();

@@ -554,7 +554,7 @@ $(document).ready(function() {
                             var new_row = '<tr class="nr" id="rowid' + data.items.digits_code + '">' +
                                 '<td><input class="form-control text-center" type="text" name="digits_code[]" readonly value="' + data.items.digits_code + '"><input type="hidden" name="bea_item[]" value="' + data.items.bea_item + '"></td>' +
                                 '<td><input class="form-control" type="text" name="item_description[]" readonly value="' + data.items.item_description + '"><input type="hidden" name="price[]" value="' + data.items.price + '"></td>' +
-                                '<td class="scan scanqty' + data.items.digits_code + '" bgcolor="yellow"><input class="form-control text-center scan_qty" data-item="' + data.items.digits_code + '" type="number" min="0" max="9999" id="qty_' + data.items.digits_code + '" name="st_quantity[]"  value="0" item-qty="'+data.items.orig_qty+'">' +
+                                '<td class="scan scanqty' + data.items.digits_code + '" bgcolor="yellow"><input class="form-control text-center scan_qty" data-item="' + data.items.digits_code + '" type="number" min="0" max="9999" id="qty_' + data.items.digits_code + '" name="st_quantity[]"  value="0" mw-reserve-qty="'+data.items.mwReservableQty+'" item-qty="'+data.items.orig_qty+'">' +
                                 // '<td><select class="form-control select2 problems" style="width: 100%;" required name="' + data.items.digits_code + 'problems[]" id="problems' + data.items.digits_code + '" multiple="multiple"></select><input class="form-control problem_details" type="text" name="problem_detail[]" id="problem_detail' + data.items.digits_code + '" placeholder="Problem"/></td>' +
                                 '<td class="text-center"><button id="' + data.items.digits_code + '" class="btn btn-xs btn-danger delete_item"><i class="glyphicon glyphicon-trash"></i></button></td>' +
                                 '</tr>';
@@ -878,7 +878,8 @@ $(document).ready(function() {
             const currentVal = $(input).val(); 
             const value = Number(currentVal.replace(/\D/g, ''));
             const maxValue = Number($(input).attr('item-qty'));
-            if (value > maxValue) {
+            const mwReserveQty = Number($(input).attr('mw-reserve-qty'));
+            if (value > maxValue || value > mwReserveQty) {
                 $(input).css('border', '2px solid red');
                 isValid = false;
             } else if (currentVal <= 0) {

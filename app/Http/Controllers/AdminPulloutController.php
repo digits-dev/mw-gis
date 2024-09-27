@@ -1740,9 +1740,14 @@
 				$location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
 				->where('location_name',$mw_location->bea_so_store_name)->first();
 	
-				//get sublocation
-				$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-				->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
+				if($isGisSt->transaction_type == 'RMA'){
+					//get sublocation
+					$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+					->where('location_id',$location->id)->where('description','STOCK ROOM(D)')->first();
+				}else{
+					$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+					->where('location_id',$location->id)->where('description','STOCK ROOM')->first();
+				}
 			
 				//get sub location in transit
 				$from_intransit_gis_sub_location = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
@@ -1767,6 +1772,17 @@
 						'qty' => DB::raw("qty + $item->quantity"),
 						'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 					]);
+
+					if($isGisSt->transaction_type == 'STW'){
+						//UPDATE IN MW RESERVE QTY
+						DB::table('items')
+						->where([
+							'upc_code' => $item->item_code,
+						])
+						->update([
+							'reserve_qty' => DB::raw("reserve_qty + $item->quantity")
+						]);
+					}
 					//ADD GIS MOVEMENT HISTORY
 					//get item code
 					$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
@@ -2412,6 +2428,15 @@
 					'inventory_capsule_lines.updated_at' => date('Y-m-d H:i:s')
 				]);
 
+				//UPDATE IN MW RESERVE QTY
+				DB::table('items')
+				->where([
+					'upc_code' => $value_item,
+				])
+				->update([
+					'reserve_qty' => DB::raw("reserve_qty - $st_qty")
+				]);
+
 				//ADD GIS MOVEMENT HISTORY
 				//get item code
 				$gis_mw_name = DB::connection('gis')->table('cms_users')->where('email','mw@gashapon.ph')->first();
@@ -2468,6 +2493,9 @@
 			])
 			->where('inventory_capsule_lines.sub_locations_id',$sublocation->id)
 			->first();
+
+			$mwReservalbleQty = DB::table('items')->where('upc_code',$request->item_code)->first();
+
 			if($inventory_gis && $inventory_gis->qty >= 0) {
 				$data['status_no'] = 1;
 				$data['message'] ='Item found!';
@@ -2477,6 +2505,7 @@
 				$return_data['location_id_from'] = $location->id;
 				$return_data['sub_location_id_from'] = $sublocation->id;
 				$return_data['orig_qty'] = $inventory_gis->qty;
+				$return_data['mwReservableQty'] = $mwReservalbleQty->reserve_qty;
 				$data['items'] = $return_data;
 			}
 		
