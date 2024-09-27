@@ -120,7 +120,12 @@ table.table.table-bordered th {
                         <table class="table table-bordered noselect" id="st-items">
                             <thead>
                                 <tr style="background: #0047ab; color: white">
-                                    <th width="10%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    @if($stDetails[0]->request_type || !empty($stDetails[0]->request_type))
+                                        <th width="10%" class="text-center">Jan Code</th>
+                                        <th width="10%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    @else
+                                        <th width="10%" class="text-center">{{ trans('message.table.digits_code') }}</th>
+                                    @endif
                                     @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
                                         <th width="15%" class="text-center">{{ trans('message.table.upc_code') }}</th>
                                     @endif
@@ -135,6 +140,9 @@ table.table.table-bordered th {
                                 @foreach ($items as $item)
                                     <tr>
                                         <td class="text-center">{{$item['digits_code']}} <input type="hidden" name="digits_code[]" value="{{ $item['digits_code'] }}"></td>
+                                        @if($stDetails[0]->request_type || !empty($stDetails[0]->request_type))
+                                            <td class="text-center">{{$item['upc_code']}} </td>
+                                        @endif
                                         @if(is_null($stDetails[0]->request_type) || empty($stDetails[0]->request_type))
                                             <td class="text-center">{{$item['upc_code']}} </td>
                                         @endif
@@ -162,7 +170,7 @@ table.table.table-bordered th {
                                     </tr>
                                 @else
                                     <tr class="tableInfo">
-                                        <td colspan="2" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
+                                        <td colspan="3" align="right"><strong>{{ trans('message.table.total_quantity') }}</strong></td>
                                         <td align="left" colspan="1">
                                             <input type='text' name="total_quantity" class="form-control text-center" id="totalQuantity" value="{{$stQuantity}}" readonly></td>
                                         </td>

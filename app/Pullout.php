@@ -51,6 +51,7 @@ class Pullout extends Model
     public function itemUpc() : BelongsTo {
         return $this->belongsTo(Item::class, 'item_code', 'upc_code');
     }
+    
 
     public function serial() : HasMany {
         return $this->hasMany(Serials::class, 'id', 'pullout_id');

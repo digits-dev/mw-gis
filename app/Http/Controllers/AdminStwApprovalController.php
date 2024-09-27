@@ -148,13 +148,13 @@ use App\StoreName;
 			$items = Pullout::with(['item','itemUpc','serial'])->getItemsForApproval($st_number)->get();
 			$data['stQuantity'] =  Pullout::getItemQty($st_number);
 			$item_data = [];
-
+		
 			foreach ($items as $key => $value) {
 				$item_detail = $value->itemUpc;
 				if(!$value->request_type){
 					$item_detail = $value->item;
 				}
-
+				
 				$serial_data = array();
 				foreach ($value->serial ?? [] as $serial) {
 					array_push($serial_data, $serial->serial_number);
@@ -162,12 +162,13 @@ use App\StoreName;
 
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
-					'upc_code' => $value->item->upc_code,
-					'bea_item_id' => $value->item->bea_item_id,
+					'upc_code' => $value->itemUpc->upc_code,
+					'bea_item_id' => $value->itemUpc->bea_item_id,
 					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
-					'price' => $value->item->store_cost,
+					'price' => $value->itemUpc->store_cost,
 					'st_quantity' => $value->quantity,
-					'st_serial_numbers' => $serial_data
+					'st_serial_numbers' => $serial_data,
+					'gis_upc_code' => $value->itemUpc->digits_code
 				];
 			}
 
@@ -179,6 +180,7 @@ use App\StoreName;
 
 		public function saveReviewPullout(Request $request)
 		{
+			
 			$isGisSt = DB::table('pullout')->where('st_document_number',$request->st_number)->first();
 			if(!$isGisSt->request_type){
 				$pullout_approval = Pullout::where('st_document_number',$request->st_number)->first();
@@ -362,14 +364,13 @@ use App\StoreName;
 					$customer = app(EBSPullController::class)->getPriceList($store->bea_so_store_name);
 					$pullout = Pullout::where('st_document_number',$request->st_number)->first();
 
-					$rmaHeader = app(EBSPushController::class)->sorRMAHeaders($customer->price_list_id, $customer->sold_to_org_id, $customer->ship_to_org_id, $customer->invoice_to_org_id, $request->st_number);
 					foreach ($request->digits_code as $key_item => $value_item) {
-						$line_number = $key_item;
-						$line_number++;
-						app(EBSPushController::class)->sorRMALines($line_number, $rmaHeader['rma_header'], $request->bea_item[$key_item], $request->st_quantity[$key_item], $customer->price_list_id, $request->price[$key_item], $request->price[$key_item], $request->reason_so, 'TO CHECK');
+						if(empty(app(EBSPullController::class)->getCreatedItemMOR($request->st_number,$request->bea_item[$key_item]))){
+							app(EBSPushController::class)->createMOR($request->bea_item[$key_item], $store->doo_subinventory, ($request->st_quantity[$key_item])*(-1), $store->org_subinventory, $request->st_number, 224, $request->reason_mo, 223);
+						}
 					}
 
-					$pullout_status = app(StatusWorkflowController::class)->getRMANextStatus(
+					$pullout_status = app(StatusWorkflowController::class)->getSTWNextStatus(
 						$pullout->channel_id, 
 						$pullout->transport_types_id, 
 						'',

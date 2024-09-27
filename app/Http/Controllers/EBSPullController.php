@@ -2379,6 +2379,103 @@ class EBSPullController extends Controller
         }
         
     }
+
+    public function getReceivedMORGISSTWTransactions()
+    {
+        
+        $pullouts = DB::table('pullout')
+            ->where('status','FOR RECEIVING')
+            ->select('st_document_number','channel_id','transaction_type','wh_from','wh_to')
+            ->distinct()->get();
+
+        foreach ($pullouts as $pullout) {
+            $dot = DB::connection('oracle')->table('RCV_SHIPMENT_HEADERS')
+                ->join('RCV_SHIPMENT_LINES','RCV_SHIPMENT_HEADERS.SHIPMENT_HEADER_ID','=','RCV_SHIPMENT_LINES.SHIPMENT_HEADER_ID')
+                ->where('RCV_SHIPMENT_HEADERS.SHIPMENT_NUM', $pullout->st_document_number)
+                ->select(
+                    'RCV_SHIPMENT_HEADERS.ORGANIZATION_ID AS FROM_ORG',
+                    'RCV_SHIPMENT_HEADERS.SHIP_TO_ORG_ID as TO_ORG',
+                    'RCV_SHIPMENT_HEADERS.SHIPMENT_NUM',
+                    'RCV_SHIPMENT_HEADERS.RECEIPT_NUM',
+                    'RCV_SHIPMENT_HEADERS.SHIPPED_DATE',
+                    DB::raw("SUM (RCV_SHIPMENT_LINES.QUANTITY_SHIPPED) as SUM_QTY_SHIPPED"),
+                    DB::raw("SUM (RCV_SHIPMENT_LINES.QUANTITY_RECEIVED) as SUM_QTY_RECEIVED")
+                )
+                ->groupBy(
+                    'RCV_SHIPMENT_HEADERS.ORGANIZATION_ID',
+                    'RCV_SHIPMENT_HEADERS.SHIP_TO_ORG_ID',
+                    'RCV_SHIPMENT_HEADERS.SHIPMENT_NUM',
+                    'RCV_SHIPMENT_HEADERS.RECEIPT_NUM',
+                    'RCV_SHIPMENT_HEADERS.SHIPPED_DATE'
+                )
+                ->first();
+
+            //if retail
+            $posItemDetails = array();
+            $received_st_number = 0;
+			$store = DB::table('stores')->where('pos_warehouse',$pullout->wh_from)->where('status','ACTIVE')->first();
+            $pulloutItems = DB::table('pullout')
+                ->where('st_document_number',$pullout->st_document_number)
+                ->where('status','FOR RECEIVING')->get();
+			
+            // foreach ($pulloutItems as $key_item => $value_item) {
+			// 	$serial = $value_item->item_code.'_serial_number';
+			// 	$price = DB::table('items')->where('upc_code',$value_item->item_code)->value('store_cost');
+			// 	if($value_item->has_serial == 1){
+			// 		$pulloutSerials = explode(",",$value_item->serial);
+			// 		foreach ($pulloutSerials as $key_serial => $value_serial) {
+						
+			// 			$posItemDetails[$value_item->item_code.'-'.$key_serial] = [
+			// 				'item_code' => $value_item->item_code,
+			// 				'quantity' => 1,
+			// 				'serial_number' => $value_serial,
+			// 				'item_price' => $price
+			// 			];
+			// 		}
+					
+			// 	}
+			// 	else{
+					
+			// 		$posItemDetails[$value_item->item_code.'-'.$key_item] = [
+			// 			'item_code' => $value_item->item_code,
+			// 			'quantity' => $value_item->quantity,
+			// 			'item_price' => $price
+			// 		];
+					
+			// 	}
+			// }
+
+			// if(!empty($pulloutItems) && $pullout->channel_id != 4 && !empty($dot) && $dot->sum_qty_received > 0){
+            //     if($pullout->transaction_type == 'STW'){
+            //         $postedST = app(POSPushController::class)->posCreateStockTransfer($pullout->st_document_number, $store->pos_warehouse_transit_branch, $store->pos_warehouse_transit, $pullout->wh_to, 'STW-'.$store->pos_warehouse_name, $posItemDetails);
+            //     }
+            //     else{
+            //         $postedST = app(POSPushController::class)->posCreateStockTransfer($pullout->st_document_number, $store->pos_warehouse_rma_branch, $store->pos_warehouse_rma, $pullout->wh_to, 'STR-'.$store->pos_warehouse_name, $posItemDetails);
+            //     }
+            //     \Log::info('received ST:'.json_encode($postedST));
+            //     $received_st_number = $postedST['data']['record']['fdocument_no'];
+            //     if($postedST['data']['record']['fresult'] != "ERROR" && !empty($received_st_number)){
+            //         if($pullout->transaction_type == 'STW'){
+            //             app(POSPushController::class)->posCreateStockAdjustmentOut($received_st_number,'DIGITSWAREHOUSE', $posItemDetails);
+            //         }
+                    
+            //     }
+            // }
+
+            if(!empty($dot) && $dot->sum_qty_received > 0 && $dot->sum_qty_received == $dot->sum_qty_shipped){
+                DB::table('pullout')->where('st_document_number',$pullout->st_document_number)->update([
+                    'status' => 'RECEIVED'
+                ]);
+            }
+            elseif(!empty($dot) && $dot->sum_qty_received > 0 && $dot->sum_qty_received < $dot->sum_qty_shipped){
+                DB::table('pullout')->where('st_document_number',$pullout->st_document_number)->update([
+                    'status' => 'PARTIALLY RECEIVED'
+                ]);
+            }
+
+        }
+        
+    }
     
     public function getMORTransactions()
     {
@@ -2491,7 +2588,7 @@ class EBSPullController extends Controller
     public function getReceivedSORGisMwTransactions()
     {
         $pullouts = DB::table('pullout')->where('status','FOR RECEIVING')
-            ->whereIn('transaction_type',['RMA','STW'])
+            ->whereIn('transaction_type',['RMA'])
             ->whereNotNull('request_type')
     	    ->distinct('st_document_number')->get();
     

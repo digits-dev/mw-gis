@@ -1835,10 +1835,10 @@
 			->sum('quantity');
 
 			foreach ($items as $key => $value) {
-
+	
 				$serials = DB::table('serials')->where('pullout_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
-
+				$gis_item_detail = DB::table('items')->where('upc_code', $value->item_code)->first();
 				$serial_data = array();
 				foreach ($serials as $serial) {
 					array_push($serial_data, $serial->serial_number);
@@ -1846,17 +1846,18 @@
 
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
-					'upc_code' => $item_detail->upc_code,
-					'brand' => $item_detail->brand,
+					'upc_code' => $item_detail->upc_code ?? $gis_item_detail->digits_code,
+					'brand' => $item_detail->brand ?? $gis_item_detail->brand,
 					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
-					'price' => $item_detail->store_cost,
+					'price' => $item_detail->store_cost ?? $gis_item_detail->store_cost,
 					'st_quantity' => $value->quantity,
 					'problems' => $value->problems.' : '.$value->problem_detail,
 					'st_serial_numbers' => $serial_data
 				];
 			}
-
+		
 			$data['items'] = $item_data;
+		
 			$this->cbView("pullout.detail", $data);
 		}
 
@@ -1901,6 +1902,7 @@
 
 				$serials = DB::table('serials')->where('pullout_id',$value->id)->select('serial_number')->get();
 				$item_detail = DB::table('items')->where('digits_code', $value->item_code)->first();
+				$gis_item_detail = DB::table('items')->where('upc_code', $value->item_code)->first();
 
 				$serial_data = array();
 				foreach ($serials as $serial) {
@@ -1909,10 +1911,12 @@
 
 				$item_data[$key] = [
 					'digits_code' => $value->item_code,
-					'upc_code' => $item_detail->upc_code,
+					'upc_code' => $item_detail->upc_code ?? $gis_item_detail->digits_code,
+					'brand' => $item_detail->brand ?? $gis_item_detail->brand,
 					'item_description' => $item_detail != NULL ? $item_detail->item_description : $value->item_description,
-					'price' => $item_detail->store_cost,
+					'price' => $item_detail->store_cost ?? $gis_item_detail->store_cost,
 					'st_quantity' => $value->quantity,
+					'problems' => $value->problems.' : '.$value->problem_detail,
 					'st_serial_numbers' => $serial_data
 				];
 			}
@@ -2019,6 +2023,7 @@
 			$pullouts = DB::table('pullout')
     			->where('status','FOR PROCESSING')//'FOR SCHEDULE','FOR RECEIVING',
     			->whereNotNull('request_type')
+				->where('transaction_type','RMA')
     			->whereNull('sor_number')->get();
 			$record = false;
 			
