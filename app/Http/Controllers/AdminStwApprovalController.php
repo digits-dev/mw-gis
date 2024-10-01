@@ -366,7 +366,7 @@ use App\StoreName;
 
 					foreach ($request->digits_code as $key_item => $value_item) {
 						if(empty(app(EBSPullController::class)->getCreatedItemMOR($request->st_number,$request->bea_item[$key_item]))){
-							app(EBSPushController::class)->createMOR($request->bea_item[$key_item], $store->doo_subinventory, ($request->st_quantity[$key_item])*(-1), $store->org_subinventory, $request->st_number, 224, $request->reason_mo, 223);
+							app(EBSPushController::class)->createMOR($request->bea_item[$key_item], $store->doo_subinventory, ($request->st_quantity[$key_item])*(-1), $store->org_subinventory, $request->st_number, 283, $request->reason_mo, 223);
 						}
 					}
 
