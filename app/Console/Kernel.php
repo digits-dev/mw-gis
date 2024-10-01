@@ -61,12 +61,18 @@ class Kernel extends ConsoleKernel
         $schedule->call('\App\Http\Controllers\EBSPullController@moveOrderPullDistri')->everyFiveMinutes();
         $schedule->call('\App\Http\Controllers\EBSPullController@updateSerializedItems')->everyThirtyMinutes();
         $schedule->call('\App\Http\Controllers\AdminPulloutController@updateSORNumber')->everyFiveMinutes();
-        // --GIS MW
-        $schedule->call('\App\Http\Controllers\AdminPulloutController@updateMwGisSORNumber')->everyMinute();
+        // --GIS STR MW
+        $schedule->call('\App\Http\Controllers\AdminPulloutController@updateMwGisSORNumber')->everyFiveMinutes();
         $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedSORGisMwTransactions')->dailyAt('22:00');
+        // --GIS STW MW
+        $schedule->call('\App\Http\Controllers\EBSPullController@getMORTransactions')->everyFiveMinutes();
+        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedMORGISSTWTransactions')->dailyAt('22:00');
+
+        //TEST
+
         // Auto Reject
-        $schedule->call('\App\Http\Controllers\AdminStoreTransferController@autoRejectHandCarry')->dailyAt('22:00');
-        $schedule->call('\App\Http\Controllers\AdminStoreTransferController@autoRejectLogistics')->dailyAt('22:00');
+        // $schedule->call('\App\Http\Controllers\AdminStoreTransferController@autoRejectHandCarry')->dailyAt('22:00');
+        // $schedule->call('\App\Http\Controllers\AdminStoreTransferController@autoRejectLogistics')->dailyAt('22:00');
 
         // $schedule->call('\App\Http\Controllers\ItemsController@pushPOSItemCreation')->everyFiveMinutes();
         // 2022-05-25
