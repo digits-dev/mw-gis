@@ -2496,7 +2496,7 @@
 
 			$mwReservalbleQty = DB::table('items')->where('upc_code',$request->item_code)->first();
 
-			if($inventory_gis && $inventory_gis->qty >= 0) {
+			if($inventory_gis && $inventory_gis->qty >= 0 && isset($mwReservalbleQty)) {
 				$data['status_no'] = 1;
 				$data['message'] ='Item found!';
 				$return_data['digits_code'] = $inventory_gis->digits_code;
