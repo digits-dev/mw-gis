@@ -65,7 +65,6 @@ class Kernel extends ConsoleKernel
         $schedule->call('\App\Http\Controllers\AdminPulloutController@updateMwGisSORNumber')->everyFiveMinutes();
         $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedSORGisMwTransactions')->dailyAt('22:00');
         // --GIS STW MW
-        $schedule->call('\App\Http\Controllers\EBSPullController@getMORTransactions')->everyFiveMinutes();
         $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedMORGISSTWTransactions')->dailyAt('22:00');
 
         //TEST
