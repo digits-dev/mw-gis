@@ -2,11 +2,11 @@
 
 	namespace App\Http\Controllers;
 
-use App\PosPullHeader;
-use Session;
-	use Request;
-	use DB;
-	use CRUDBooster;
+	use App\PosPullHeader;
+	use crocodicstudio\crudbooster\helpers\CRUDBooster;
+	use Exception;
+	use Illuminate\Support\Facades\DB;
+	use Illuminate\Support\Facades\Log;
 
 	class AdminPosTransactionsController extends \crocodicstudio\crudbooster\controllers\CBController {
 
@@ -49,8 +49,6 @@ use Session;
 			# START FORM DO NOT REMOVE THIS LINE
 			$this->form = [];
 			# END FORM DO NOT REMOVE THIS LINE
-
-			
 	        $this->button_selected = array();
             if(CRUDBooster::isSuperadmin()){
             	$this->button_selected[] = ['label'=>'Set Closed Status', 'icon'=>'fa fa-times-circle', 'name'=>'set_closed_status'];
@@ -136,20 +134,20 @@ use Session;
 			} 
 
 			if($button_name == 'reset_serial_flag'){
-				\Log::info('---reset_serial_flag---');
+				Log::info('---reset_serial_flag---');
 				try {
 					DB::table('serials')->whereIn('pos_pull_id', $id_selected)->update([
 						'counter' => 0,
 						'status' => 'PENDING'
 					]);
-				} catch (\Exception $e) {
-					\Log::error('Error!'.$e->getMessage());
+				} catch (Exception $e) {
+					Log::error('Error!'.$e->getMessage());
 				}
-				\Log::info('---done resetting serial_flag---');
+				Log::info('---done resetting serial_flag---');
 			}
 
 			if($button_name == 'rerun_st_receiving'){
-			    \Log::info('---rerun_st_receiving---');
+			    Log::info('---rerun_st_receiving---');
 			    $posItemDetails = array();
 				// $stsDetails = DB::table('pos_pull')->whereIn('id', $id_selected)->get();
 				$stsDetails = PosPullHeader::find($lineItems[0]->pos_pull_header_id);
@@ -191,7 +189,7 @@ use Session;
                     $transfer_branch = $whfrom->pos_warehouse_rma_branch;
                     $transfer_destination = $whto->pos_warehouse_rma;
                 }
-                \Log::info('---push to pos---');
+                Log::info('---push to pos---');
                 $postedST = (new POSPushController)->posCreateStockTransferReceiving($refcode, 
                     $transfer_branch, 
                     $transfer_origin, 
@@ -200,7 +198,7 @@ use Session;
                     date("Ymd", strtotime($receivedDate)),
                     $posItemDetails);
                 
-                \Log::info('sts create rcv ST: '.json_encode($postedST));
+                Log::info('sts create rcv ST: '.json_encode($postedST));
                 //20210215 add checking if st number is not null
                 $st_number = $postedST['data']['record']['fdocument_no'];
 				$stsDetails->received_st_number = $st_number;
@@ -218,7 +216,6 @@ use Session;
 				'pos_pull_headers.wh_to',
 				'pos_pull_headers.memo'
 			)->leftJoin('pos_pull_headers','pos_pull.pos_pull_header_id','=','pos_pull_headers.id');
-	        // dd($query->toSql());    
 	    }  
 	    public function hook_row_index($column_index,&$column_value) {	        
 	    	if($column_index == 5){
