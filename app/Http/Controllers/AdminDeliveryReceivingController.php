@@ -411,8 +411,7 @@ use Session;
 			elseif($data['dr_detail']->is_trade == 0){
 				return view("delivery.sys-receive", $data);
 			}
-			else if(CRUDBooster::myBulkReceiving()[0] == 1){
-			    \Log::info('test2 '. json_encode(CRUDBooster::myBulkReceiving()));
+			elseif(CRUDBooster::myBulkReceiving()[0] == 1){
 			    return view("delivery.sys-receive", $data);
 			}
 			else{
@@ -553,7 +552,6 @@ use Session;
 
 		public function saveReceivingST(Request $request)
 		{
-			dd($request->all());
 			$bea_record = DB::table('ebs_pull')->where('dr_number', $request->dr_number)->first();
 			if($bea_record->status == 'RECEIVED'){
 				CRUDBooster::redirect(CRUDBooster::mainpath(),'DR# '.$bea_record->dr_number.' has already been received!','warning')->send();
@@ -565,122 +563,123 @@ use Session;
 			else{
 				$stores = DB::table('stores')->where('bea_mo_store_name', $bea_record->customer_name)->first();
 			}
-			 //edited 20220318 due to soap error
-			// $stockAdjustments = app(POSPullController::class)->getStockAdjustment($request->dr_number); //timeout while checking
-							
-			// if($stockAdjustments['data']['record']['fstatus_flag'] != 'POSTED'){
-				//if(substr($stores->bea_mo_store_name, -3) != 'FBV'){
-				if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
-				    if($request->transaction_type != 'MO-RMA'){
-				        $postedSI = app(POSPushController::class)->postSI($request->dr_number);
-				    }
-				    else{
-				        $postedSI = app(POSPushController::class)->postSI($request->dr_number,'DIGITSRMA');
-				    }
-				    
-				}
-			// }
-			// check first if ST is existing
-			$stockTransfers = app(POSPullController::class)->getStockTransferByRef($request->dr_number);
-            
-			if($stockTransfers['data']['record']['fstatus_flag'] != 'POSTED'){
-				// if(substr($stores->bea_mo_store_name, -3) != 'FBV'){
-				if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
-				    if($request->transaction_type != 'MO-RMA'){
-					    app(POSPushController::class)->postST($request->dr_number, 'DIGITSWAREHOUSE', $stores->pos_warehouse);
-				    }
-					else{
-					    app(POSPushController::class)->postST($request->dr_number, 'DIGITSRMA', $stores->pos_warehouse);
-					}
-				}	
+
+			if(substr($stores->bea_so_store_name, 0, 8) == 'GASHAPON'){
+				//get action
+				$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
+					->where('description','DR')->first();
+				//get location
+				$location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
+					->where('location_name',$stores->bea_so_store_name)->first();
+
+				//get sublocation
+				$sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
+					->where('location_id',$location->id)->where('description','STOCK ROOM')->first();
 				
-				if($request->transaction_type == 'SO'){
-					app(EBSPushController::class)->acceptedDate($request->dr_number);
-					app(EBSPushController::class)->closeTrip($request->dr_number);
+				
+				foreach($request->digits_code as $key_item => $value_item) {
+					$existingcapsule = DB::connection('gis')->table('inventory_capsules')->where([
+						'item_code' => $value_item,
+						'locations_id' => $location->id
+					])->first();
 
-				}
-				elseif(in_array($request->transaction_type,['MO-RMA','MO']) && substr($stores->bea_mo_store_name, -3) != 'FBD'){
-				    if(empty(app(EBSPullController::class)->getShipmentRcvHeadersInterface($request->dr_number))){
-					    app(EBSPushController::class)->dooReceiving($request->dr_number);
-					    // app(EBSPushController::class)->receivingTransaction();
-				    }
-				    
-				    if(substr($stores->bea_so_store_name, 0, 8) == 'GASHAPON'){
-				        //get action
-						$capsuleAction = DB::connection('gis')->table('capsule_action_types')->where('status','ACTIVE')
-				            ->where('description','DR')->first();
-						//get location
-				        $location = DB::connection('gis')->table('locations')->where('status','ACTIVE')
-				            ->where('location_name',$stores->bea_so_store_name)->first();
-
-				        //get sublocation
-				        $sublocation = DB::connection('gis')->table('sub_locations')->where('status','ACTIVE')
-				            ->where('location_id',$location->id)->where('description','STOCK ROOM')->first();
-				        
+					$capsuleQty = $request->st_quantity[$key_item];
+					if (!isset($existingcapsule->id)) {
+						$capsules = DB::connection('gis')->table('inventory_capsules')->insertGetId([
+							'item_code' => $value_item,
+							'locations_id' => $location->id
+						]);
 						
-				        foreach($request->digits_code as $key_item => $value_item) {
-							$existingcapsule = DB::connection('gis')->table('inventory_capsules')->where([
-				                'item_code' => $value_item,
-				                'locations_id' => $location->id
-				            ])->first();
-
-							$capsuleQty = $request->st_quantity[$key_item];
-							if (!isset($existingcapsule->id)) {
-								$capsules = DB::connection('gis')->table('inventory_capsules')->insertGetId([
-									'item_code' => $value_item,
-									'locations_id' => $location->id
-								]);
-								
-								DB::connection('gis')->table('inventory_capsule_lines')->insert([
-									'inventory_capsules_id' => $capsules,
-									'sub_locations_id' => $sublocation->id,
-									'qty' => $capsuleQty,
-									'created_at' => date('Y-m-d H:i:s')
-								]);
-							}
-							else{
-								
-								DB::connection('gis')->table('inventory_capsule_lines')->where([
-									'inventory_capsules_id' => $existingcapsule->id,
-									'sub_locations_id' => $sublocation->id
-								])->update([
-									'qty' => DB::raw("qty + $capsuleQty"),
-									'updated_at' => date('Y-m-d H:i:s')
-								]);
-							}
-							//add history
-							DB::connection('gis')->table('history_capsules')->insert([
-								'reference_number' => $request->dr_number,
-								'item_code' => $value_item,
-								'capsule_action_types_id' => $capsuleAction->id,
-								'locations_id' => $location->id,
-								'qty' => $capsuleQty,
-								'created_at' => date('Y-m-d H:i:s')
-							]);
-				            
-				        }
-				    }
-				    
-				}
-				elseif($request->transaction_type == 'MO' && substr($stores->bea_mo_store_name, -3) == 'FBD'){
-					foreach ($request->digits_code as $key_item => $value_item) {
-						app(EBSPushController::class)->createSIT($request->dr_number, 
-							$request->bea_item_id[$key_item], 
-							$request->st_quantity[$key_item], 
-							'STAGINGMO',
-							$stores->sit_subinventory,
-							$bea_record->locator_id
-						);
+						DB::connection('gis')->table('inventory_capsule_lines')->insert([
+							'inventory_capsules_id' => $capsules,
+							'sub_locations_id' => $sublocation->id,
+							'qty' => $capsuleQty,
+							'created_at' => date('Y-m-d H:i:s')
+						]);
 					}
+					else{
+						
+						DB::connection('gis')->table('inventory_capsule_lines')->where([
+							'inventory_capsules_id' => $existingcapsule->id,
+							'sub_locations_id' => $sublocation->id
+						])->update([
+							'qty' => DB::raw("qty + $capsuleQty"),
+							'updated_at' => date('Y-m-d H:i:s')
+						]);
+					}
+					//add history
+					DB::connection('gis')->table('history_capsules')->insert([
+						'reference_number' => $request->dr_number,
+						'item_code' => $value_item,
+						'capsule_action_types_id' => $capsuleAction->id,
+						'locations_id' => $location->id,
+						'qty' => $capsuleQty,
+						'created_at' => date('Y-m-d H:i:s')
+					]);
+					
 				}
-	
-				DB::table('ebs_pull')->where('dr_number',$request->dr_number)->update([
-					'io_reference' => (isset($request->io_reference)) ? $request->io_reference:null,
-					'status' => 'RECEIVED',
-					'received_at' => date('Y-m-d H:i:s')
-				]);
+			}
+			else{
+				//edited 20220318 due to soap error
+				// $stockAdjustments = app(POSPullController::class)->getStockAdjustment($request->dr_number); //timeout while checking
+								
+				// if($stockAdjustments['data']['record']['fstatus_flag'] != 'POSTED'){
+					//if(substr($stores->bea_mo_store_name, -3) != 'FBV'){
+					if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
+						if($request->transaction_type != 'MO-RMA'){
+							$postedSI = app(POSPushController::class)->postSI($request->dr_number);
+						}
+						else{
+							$postedSI = app(POSPushController::class)->postSI($request->dr_number,'DIGITSRMA');
+						}
+						
+					}
+				// }
+				// check first if ST is existing
+				$stockTransfers = app(POSPullController::class)->getStockTransferByRef($request->dr_number);
+				
+				if($stockTransfers['data']['record']['fstatus_flag'] != 'POSTED'){
+					// if(substr($stores->bea_mo_store_name, -3) != 'FBV'){
+					if(!in_array(substr($stores->bea_mo_store_name, -3), ['FBV','FBD','OUT','CON','CRP','DLR'])){
+						if($request->transaction_type != 'MO-RMA'){
+							app(POSPushController::class)->postST($request->dr_number, 'DIGITSWAREHOUSE', $stores->pos_warehouse);
+						}
+						else{
+							app(POSPushController::class)->postST($request->dr_number, 'DIGITSRMA', $stores->pos_warehouse);
+						}
+					}	
+					
+					if($request->transaction_type == 'SO'){
+						app(EBSPushController::class)->acceptedDate($request->dr_number);
+						app(EBSPushController::class)->closeTrip($request->dr_number);
 
-				$record = true;
+					}
+					elseif(in_array($request->transaction_type,['MO-RMA','MO']) && substr($stores->bea_mo_store_name, -3) != 'FBD'){
+						if(empty(app(EBSPullController::class)->getShipmentRcvHeadersInterface($request->dr_number))){
+							app(EBSPushController::class)->dooReceiving($request->dr_number);
+							// app(EBSPushController::class)->receivingTransaction();
+						}				    
+					}
+					elseif($request->transaction_type == 'MO' && substr($stores->bea_mo_store_name, -3) == 'FBD'){
+						foreach ($request->digits_code as $key_item => $value_item) {
+							app(EBSPushController::class)->createSIT($request->dr_number, 
+								$request->bea_item_id[$key_item], 
+								$request->st_quantity[$key_item], 
+								'STAGINGMO',
+								$stores->sit_subinventory,
+								$bea_record->locator_id
+							);
+						}
+					}
+		
+					DB::table('ebs_pull')->where('dr_number',$request->dr_number)->update([
+						'io_reference' => (isset($request->io_reference)) ? $request->io_reference:null,
+						'status' => 'RECEIVED',
+						'received_at' => date('Y-m-d H:i:s')
+					]);
+
+					$record = true;
+				}
 			}
 			if($record){
 			    CRUDBooster::insertLog(trans("crudbooster.dr_received", ['dr_number' =>$request->dr_number]));
