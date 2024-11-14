@@ -2,6 +2,9 @@
 
 namespace App\Console;
 
+use App\Http\Controllers\AdminPulloutController;
+use App\Http\Controllers\EBSPullController;
+use App\Http\Controllers\ItemsController;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -24,57 +27,79 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        $schedule->command('inspire')->hourly();
-        
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedSORTransactions')->dailyAt('22:00');
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedDOTTransactions')->dailyAt('22:20');
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedSORFranchiseTransactions')->dailyAt('22:40');
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedDistriSORTransactions')->dailyAt('23:00');
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedSORFBDTransactions')->dailyAt('23:15');
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedDOTDistri')->dailyAt('23:40');
-        
-        $schedule->call('\App\Http\Controllers\EBSPullController@getRetailOnhand')->dailyAt('04:05'); //04:05
-        $schedule->call('\App\Http\Controllers\EBSPullController@getLazadaOnhand')->dailyAt('04:35'); //04:35
-        $schedule->call('\App\Http\Controllers\EBSPullController@getShopeeOnhand')->dailyAt('05:05'); //05:05
-        $schedule->call('\App\Http\Controllers\EBSPullController@getDistriOnhand')->dailyAt('05:35');
-        
         $schedule->command('mysql:backup')->daily()->at('06:00');
-        
-        $schedule->call('\App\Http\Controllers\ItemsController@middlewareUpdateBEAItem')->dailyAt('07:10');
-        $schedule->call('\App\Http\Controllers\ItemsController@getItemsCreatedAPI')->hourly();
-        $schedule->call('\App\Http\Controllers\ItemsController@getItemsUpdatedAPI')->hourly();
-        
-        $schedule->call('\App\Http\Controllers\EBSPullController@getWrr')->hourly();
+
+        //$schedule->call('\App\Http\Controllers\EBSPullController@salesOrderPullHQ')->everyMinute();
         //$schedule->call('\App\Http\Controllers\AdminPulloutReceivingController@closeReceiving')->dailyAt('23:00');
         
-        $schedule->call('\App\Http\Controllers\EBSPullController@salesOrderPull')->hourly(); //hourly
-        $schedule->call('\App\Http\Controllers\EBSPullController@salesOrderPullAdmin')->hourly(); //hourly
+        $schedule->call(function(){
+            $onHandPull = new EBSPullController();
+            $onHandPull->getRetailOnhand();
+            $onHandPull->getLazadaOnhand();
+            $onHandPull->getShopeeOnhand();
+            $onHandPull->getDistriOnhand();
+        })->dailyAt('04:00');
+
+        $schedule->call(function(){
+            $oraclePull = new EBSPullController();
+            $oraclePull->getReceivedDistriSORTransactions();
+            $oraclePull->getReceivedSORFBDTransactions();
+            $oraclePull->getReceivedDOTDistri();
+            $oraclePull->getReceivedSORFranchiseTransactions();
+
+        })->dailyAt('23:00');
+
+        $schedule->call(function(){
+            $oraclePull = new EBSPullController();
+            $oraclePull->getReceivedSORGisMwTransactions();
+            $oraclePull->getReceivedMORGISSTWTransactions();
+            $oraclePull->getReceivedSORTransactions();
+            $oraclePull->getReceivedDOTTransactions();
             
-        $schedule->call('\App\Http\Controllers\EBSPullController@getDOTTransactions')->everyFiveMinutes();
-        $schedule->call('\App\Http\Controllers\EBSPullController@getMORTransactions')->everyFiveMinutes();
+        })->dailyAt('22:00');
 
-        //-- $schedule->call('\App\Http\Controllers\EBSPullController@salesOrderPullHQ')->everyMinute();
-        
-        $schedule->call('\App\Http\Controllers\EBSPullController@moveOrderPullRma')->everyThirtyMinutes();
-        $schedule->call('\App\Http\Controllers\EBSPullController@moveOrderPull')->everyThirtyMinutes();
-        $schedule->call('\App\Http\Controllers\EBSPullController@moveOrderPullOnline')->everyThirtyMinutes();
-        $schedule->call('\App\Http\Controllers\EBSPullController@moveOrderPullDistri')->everyFiveMinutes();
-        $schedule->call('\App\Http\Controllers\EBSPullController@updateSerializedItems')->everyThirtyMinutes();
-        $schedule->call('\App\Http\Controllers\AdminPulloutController@updateSORNumber')->everyFiveMinutes();
-        // --GIS STR MW
-        $schedule->call('\App\Http\Controllers\AdminPulloutController@updateMwGisSORNumber')->everyFiveMinutes();
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedSORGisMwTransactions')->dailyAt('22:00');
-        // --GIS STW MW
-        $schedule->call('\App\Http\Controllers\EBSPullController@getReceivedMORGISSTWTransactions')->dailyAt('22:00');
+        $schedule->call(function(){
+            $pullouts = new AdminPulloutController();
+            $pullouts->updateSORNumber();
+            $pullouts->updateMwGisSORNumber();
 
-        //TEST
+            $oraclePull = new EBSPullController();
+            $oraclePull->getDOTTransactions();
+            $oraclePull->getMORTransactions();
+            $oraclePull->moveOrderPullDistri();
+            $oraclePull->getMORTransactions();
+            
+        })->everyFiveMinutes();
+
+        $schedule->call(function(){
+            $oraclePull = new EBSPullController();
+            $oraclePull->moveOrderGboPull();
+            $oraclePull->moveOrderPullRma();
+            $oraclePull->moveOrderPull();
+            $oraclePull->moveOrderPullOnline();
+            $oraclePull->updateSerializedItems();
+
+        })->everyThirtyMinutes();
+
+        $schedule->call(function(){
+            $itemSync = new ItemsController();
+            $itemSync->getItemsCreatedAPI();
+            $itemSync->getItemsUpdatedAPI();
+            $itemSync->middlewareUpdateBEAItem();
+
+            $oraclePull = new EBSPullController();
+            $oraclePull->getWrr();
+            $oraclePull->salesOrderPull();
+            $oraclePull->salesOrderPullAdmin();
+
+        })->hourly();
 
         // Auto Reject
         // $schedule->call('\App\Http\Controllers\AdminStoreTransferController@autoRejectHandCarry')->dailyAt('22:00');
         // $schedule->call('\App\Http\Controllers\AdminStoreTransferController@autoRejectLogistics')->dailyAt('22:00');
 
+        // Auto create items
         // $schedule->call('\App\Http\Controllers\ItemsController@pushPOSItemCreation')->everyFiveMinutes();
-        // 2022-05-25
         // $schedule->call('\App\Http\Controllers\ItemsController@pushBEAItemCreation')->hourly();
         
     }
