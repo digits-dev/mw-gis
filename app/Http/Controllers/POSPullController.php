@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use DB;
-use PDO;
-use CRUDBooster;
+use Illuminate\Support\Facades\DB;
+use SoapClient;
 
 class POSPullController extends Controller
 {
@@ -22,14 +20,14 @@ class POSPullController extends Controller
     public function __construct()
     {
         ini_set("soap.wsdl_cache_enabled", "0");
-        $this->client = new \SoapClient("http://bc.alliancewebpos.com/appserv/app/w3p/w3p.wsdl", 
-            array("location" => "http://bc.alliancewebpos.com/appserv/app/w3p/W3PSoapServer.php")); 
+        $this->client = new SoapClient("http://bc.alliancewebpos.com/appserv/app/w3p/w3p.wsdl",
+            array("location" => "http://bc.alliancewebpos.com/appserv/app/w3p/W3PSoapServer.php"));
 
         $this->w3p_id = config('w3p.w3p_id');
         $this->w3p_key = config('w3p.w3p_key');
     }
     
-    public function posPull($datefrom, $dateto)
+    public function posPull($dateFrom, $dateTo)
     {
         $data['st_details'] = DB::connection('webpos')->table('inv_adjust')
             ->leftJoin('inv_adjust_product', 'inv_adjust.frecno', '=', 'inv_adjust_product.frecno')
@@ -48,7 +46,7 @@ class POSPullController extends Controller
                 'floor(inv_adjust_product.fqty) as QUANTITY',
                 'inv_adjust_product.flotno as SERIAL',
                 'inv_adjust.fstatus_flag as ST_STATUS_ID')
-            ->whereBetween('inv_adjust.ftrxdate', [$datefrom, $dateto])
+            ->whereBetween('inv_adjust.ftrxdate', [$dateFrom, $dateTo])
             ->where('inv_adjust.fdoctype', 101)
             ->where('inv_adjust.fcompanyid','=','whf.fcompanyid')
             ->where('inv_adjust.fcompanyid','=','whd.fcompanyid')
@@ -59,15 +57,15 @@ class POSPullController extends Controller
             ->where('mst_product.fcompanyid', 'BC-17052282')
             ->get();
 
-        foreach ($data['st_details'] as $key => $value) {
+        foreach ($data['st_details'] as $value) {
             DB::table('pos_pull')->insert((array)$value);
         }
 
-        dd($data);
+        return response()->json($data);
     }
 
     public function getProduct($item)
-    {   
+    {
         
         $parameter = "
             <root>
@@ -90,10 +88,9 @@ class POSPullController extends Controller
         
     }
 
-    public function checkSTNumber($document_no)
+    public function checkSTNumber($documentNumber)
     {
-        $result = self::getStockTransfer($document_no);
-        return $result;
+        return self::getStockTransfer($documentNumber);
         // if($result['data']['record']['fstatus_flag'] == 'POSTED'){
         //     CRUDBooster::redirect(CRUDBooster::mainpath(),'ST#: '.$document_no.' is posted!','success')->send();
         // }
@@ -102,7 +99,7 @@ class POSPullController extends Controller
         // }
     }
 
-    public function getStockTransfer($document_no)
+    public function getStockTransfer($documentNumber)
     {
         $parameter = "
             <root>
@@ -113,7 +110,7 @@ class POSPullController extends Controller
 
                 <data>
                     <filter>
-                        <fdocument_no>".$document_no."</fdocument_no>
+                        <fdocument_no>".$documentNumber."</fdocument_no>
                         <ffrom>".date('Ymd')."</ffrom>
                     </filter>
                 </data>
@@ -124,7 +121,7 @@ class POSPullController extends Controller
         return json_decode(json_encode(simplexml_load_string($result)), true);
     }
     
-    public function getPOSItem($itemcode)
+    public function getPOSItem($itemCode)
     {
         $parameter = "
             <root>
@@ -135,7 +132,7 @@ class POSPullController extends Controller
 
                 <data>
                     <filter>
-                        <fproductid>".$itemcode."</fproductid>
+                        <fproductid>".$itemCode."</fproductid>
                     </filter>
                 </data>
 
@@ -145,7 +142,7 @@ class POSPullController extends Controller
         return json_decode(json_encode(simplexml_load_string($result)), true);
     }
     
-    public function getStockTransferByRef($dr_number)
+    public function getStockTransferByRef($drNumber)
     {
         $parameter = "
             <root>
@@ -156,7 +153,7 @@ class POSPullController extends Controller
 
                 <data>
                     <filter>
-                        <freference_code>".$dr_number."</freference_code>
+                        <freference_code>".$drNumber."</freference_code>
                         <ffrom>".date('Ymd')."</ffrom>
                     </filter>
                 </data>
@@ -167,7 +164,7 @@ class POSPullController extends Controller
         return json_decode(json_encode(simplexml_load_string($result)), true);
     }
     
-    public function getStockTransferByRefManual($dr_number,$date)
+    public function getStockTransferByRefManual($drNumber, $date)
     {
         $parameter = "
             <root>
@@ -178,7 +175,7 @@ class POSPullController extends Controller
 
                 <data>
                     <filter>
-                        <freference_code>".$dr_number."</freference_code>
+                        <freference_code>".$drNumber."</freference_code>
                         <ffrom>".$date."</ffrom>
                     </filter>
                 </data>
@@ -189,7 +186,7 @@ class POSPullController extends Controller
         return json_decode(json_encode(simplexml_load_string($result)), true);
     }
 
-    public function getStockAdjustment($dr_number)
+    public function getStockAdjustment($drNumber)
     {
         $parameter = "
             <root>
@@ -200,7 +197,7 @@ class POSPullController extends Controller
 
                 <data>
                     <filter>
-                        <freference_code>".$dr_number."</freference_code>
+                        <freference_code>".$drNumber."</freference_code>
                         <fsiteid>DIGITSWAREHOUSE</fsiteid>
                         <ffrom>".date('Ymd')."</ffrom>
                     </filter>
@@ -212,7 +209,7 @@ class POSPullController extends Controller
         return json_decode(json_encode(simplexml_load_string($result)), true);
     }
     
-    public function getStockAdjustmentManual($dr_number,$date)
+    public function getStockAdjustmentManual($drNumber, $date)
     {
         $parameter = "
             <root>
@@ -223,7 +220,7 @@ class POSPullController extends Controller
 
                 <data>
                     <filter>
-                        <freference_code>".$dr_number."</freference_code>
+                        <freference_code>".$drNumber."</freference_code>
                         <fsiteid>DIGITSWAREHOUSE</fsiteid>
                         <ffrom>".$date."</ffrom>
                     </filter>
@@ -235,7 +232,7 @@ class POSPullController extends Controller
         return json_decode(json_encode(simplexml_load_string($result)), true);
     }
 
-    public function getStockStatus($item, $warehouse)
+    public function getStockStatus($item, $warehouse, $newBatchId='', $lastKey='')
     {
         $parameter = "
             <root>
@@ -248,6 +245,9 @@ class POSPullController extends Controller
                     <filter>
                         <fproductid>".$item."</fproductid>
                         <fsiteid>".$warehouse."</fsiteid>
+                        <fnew_batchid>".$newBatchId."</fnew_batchid>
+                        <flast_key>".$lastKey."</flast_key>
+                        <fqtyz>1</fqtyz>
                         <fby_lot>1</fby_lot>
                     </filter>
                 </data>
@@ -259,7 +259,7 @@ class POSPullController extends Controller
 
     }
 
-    public function getSI($document_no)
+    public function getSI($documentNumber)
     {
         return DB::connection('webpos')->table('inv_adjust')
             ->join('inv_adjust_product', 'inv_adjust.frecno', '=','inv_adjust_product.frecno')
@@ -267,15 +267,15 @@ class POSPullController extends Controller
             ->join('mst_warehouse as mst', 'inv_adjust.fsiteid', '=', 'mst.fsiteid')
             ->join('mst_warehouse as msd', 'inv_adjust.fdst_siteid', '=', 'msd.fsiteid')
             ->join('mst_salesoffice', 'inv_adjust.fofficeid', '=', 'mst_salesoffice.fofficeid')
-            ->select('inv_adjust.ftrxdate AS SI_DATE',	
-                'inv_adjust.fdocument_no AS SI_NUMBER',	
-                'inv_adjust.freference_code AS BEA_DR_NUMBER',	
-                'inv_adjust.fmemo  AS MEMO',	
-                'mst.fname AS TRANSACTING_BRANCH',	
-                'msd.fname AS ADJUSTED_WAREHOUSE',		
-                'inv_adjust_product.fproductid  AS ITEM_CODE',	
-                'mst_product.fname AS ITEM_DESCRIPTION',	
-                'inv_adjust_product.fqty AS QTY',	
+            ->select('inv_adjust.ftrxdate AS SI_DATE',
+                'inv_adjust.fdocument_no AS SI_NUMBER',
+                'inv_adjust.freference_code AS BEA_DR_NUMBER',
+                'inv_adjust.fmemo  AS MEMO',
+                'mst.fname AS TRANSACTING_BRANCH',
+                'msd.fname AS ADJUSTED_WAREHOUSE',
+                'inv_adjust_product.fproductid  AS ITEM_CODE',
+                'mst_product.fname AS ITEM_DESCRIPTION',
+                'inv_adjust_product.fqty AS QTY',
                 'inv_adjust_product.flotno AS SERIAL',
                 'inv_adjust.fstatus_flag AS STATUS') //6-posted
             ->whereColumn('inv_adjust.fcompanyid','=','mst_warehouse.fcompanyid')
@@ -283,11 +283,11 @@ class POSPullController extends Controller
             ->where('inv_adjust.fdoctype', 0)
             ->where('inv_adjust.fcompanyid', 'BC-17052282')
             ->where('mst_product.fcompanyid', 'BC-17052282')
-            ->where('inv_adjust.freference_code', $document_no)
+            ->where('inv_adjust.freference_code', $documentNumber)
             ->get();
     }
 
-    public function getST($document_no)
+    public function getST($documentNumber)
     {
         return DB::connection('webpos')->table('inv_adjust')
             ->leftJoin('inv_adjust_product', 'inv_adjust.frecno', '=','inv_adjust_product.frecno')
@@ -295,15 +295,15 @@ class POSPullController extends Controller
             ->leftJoin('mst_warehouse as mst', 'inv_adjust.fsiteid', '=', 'mst.fsiteid')
             ->leftJoin('mst_warehouse as msd', 'inv_adjust.fdst_siteid', '=', 'msd.fsiteid')
             ->join('mst_salesoffice', 'inv_adjust.fofficeid', '=', 'mst_salesoffice.fofficeid')
-            ->select('inv_adjust.ftrxdate AS ST_DATE',	
-                'inv_adjust.fdocument_no AS ST_NUMBER',	
-                'inv_adjust.freference_code AS BEA_DR_NUMBER',	
-                'inv_adjust.fmemo  AS MEMO',	
-                'mst.fname AS FROM_WH',	
-                'msd.fname AS TO_WH',		
-                'inv_adjust_product.fproductid  AS ITEM_CODE',	
-                'mst_product.fname AS ITEM_DESCRIPTION',	
-                'inv_adjust_product.fqty AS QTY',	
+            ->select('inv_adjust.ftrxdate AS ST_DATE',
+                'inv_adjust.fdocument_no AS ST_NUMBER',
+                'inv_adjust.freference_code AS BEA_DR_NUMBER',
+                'inv_adjust.fmemo  AS MEMO',
+                'mst.fname AS FROM_WH',
+                'msd.fname AS TO_WH',
+                'inv_adjust_product.fproductid  AS ITEM_CODE',
+                'mst_product.fname AS ITEM_DESCRIPTION',
+                'inv_adjust_product.fqty AS QTY',
                 'inv_adjust_product.flotno AS SERIAL',
                 'inv_adjust.fstatus_flag AS STATUS') //6-posted
             ->whereColumn('inv_adjust.fcompanyid','=','mst.fcompanyid')
@@ -311,78 +311,8 @@ class POSPullController extends Controller
             ->where('inv_adjust.fdoctype', 101)
             ->where('inv_adjust.fcompanyid', 'BC-17052282')
             ->where('mst_product.fcompanyid', 'BC-17052282')
-            ->where('inv_adjust.freference_code', $document_no)
+            ->where('inv_adjust.freference_code', $documentNumber)
             ->get();
     }
-
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
-    }
+    
 }
